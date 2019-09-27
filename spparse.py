@@ -1,14 +1,9 @@
 #!/usr/bin/python3
 
 import gzip, re
+import numpy as np
 from enum import IntEnum
 from arpeggio import NoMatch, OneOrMore, Optional, ParserPython, PTNodeVisitor, RegExMatch, ZeroOrMore, visit_parse_tree
-
-class CelStarType(IntEnum):
-    NormalStar = 0x0000
-    WhiteDwarf = 0x1000
-    NeutronStar = 0x2000
-    BlackHole = 0x3000
 
 class CelMkClass(IntEnum):
     O = 0x0000
@@ -27,16 +22,14 @@ class CelMkClass(IntEnum):
     L = 0x0d00
     T = 0x0e00
     C = 0x0f00
-
-class CelWhiteDwarfClass(IntEnum):
-    DA = 0x0000
-    DB = 0x0100
-    DC = 0x0200
-    DO = 0x0300
-    DQ = 0x0400
-    DZ = 0x0500
-    D = 0x0600
-    DX = 0x0700
+    DA = 0x1000
+    DB = 0x1100
+    DC = 0x1200
+    DO = 0x1300
+    DQ = 0x1400
+    DZ = 0x1500
+    D = 0x1600
+    DX = 0x1700
 
 celUnknownSubclass = 0x00a0
 
@@ -328,9 +321,9 @@ class SpecVisitor(PTNodeVisitor):
 
     def visit_wdstar(self, node, children):
         try:
-            wdclass = CelWhiteDwarfClass[children.wdclass[0]]
+            wdclass = CelMkClass[children.wdclass[0]]
         except KeyError:
-            wdclass = CelWhiteDwarfClass.D
+            wdclass = CelMkClass.D
 
         if len(children.numeric) > 0:
             wdsubclass = children.numeric[0]
@@ -350,7 +343,7 @@ class SpecVisitor(PTNodeVisitor):
 visitor = SpecVisitor()
 multiseparator = re.compile(r'\+\ *(?:\.{2,}|(?:\(?(?:sd|d|g|c|k|h|m|g|He)?[OBAFGKM]|W[DNOCR]|wd))')
 
-celUnknownStar = CelStarType.NormalStar + CelMkClass.Unknown + celUnknownSubclass + CelLumClass.Unknown
+celUnknownStar = CelMkClass.Unknown + celUnknownSubclass + CelLumClass.Unknown
 
 def parse_spectrum(sptype):
     # resolve ambiguity in grammar: B 0-Ia could be interpreted as (B 0-) Ia or B (0-Ia)
@@ -390,10 +383,6 @@ def parse_spectrum(sptype):
     except NoMatch:
         return celUnknownStar
     else:
-        result = visit_parse_tree(parse_tree, visitor)
-        if isinstance(result[0], CelMkClass):
-            return CelStarType.NormalStar + sum(result)
-        elif isinstance(result[0], CelWhiteDwarfClass):
-            return CelStarType.WhiteDwarf + sum(result)
-        else:
-            raise ValueError("Unknown spectral type")
+        return sum(visit_parse_tree(parse_tree, visitor))
+
+parse_spectrum_vec = np.vectorize(parse_spectrum)
