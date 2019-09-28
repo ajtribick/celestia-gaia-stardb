@@ -3,4 +3,5 @@ gaia
 myenv
 vizier
 xmatch
+*.kate-swp
 *.pyc
