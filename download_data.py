@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import contextlib, getpass, os
 import astropy, requests
@@ -45,7 +45,7 @@ def download_gaia_data(colname, xindex_table, outfile_name):
     d.r_est, d.r_lo, d.r_hi
 FROM
     """ + xindex_table + """ x
-    JOIN gaiadr2.gaia_source g on g.source_id = x.source_id
+    JOIN gaiadr2.gaia_source g ON g.source_id = x.source_id
     LEFT JOIN external.gaiadr2_geometric_distance d ON d.source_id = x.source_id"""
 
     print(query)
@@ -57,6 +57,22 @@ FROM
         job.save_results()
     finally:
         Gaia.remove_jobs(job.jobid)
+
+def download_gaia_tgas_data():
+    query = """SELECT
+    g.source_id, l.rank, t.hip AS hip_id,
+    g.ra, g.dec, g.parallax, g.parallax_error, g.pmra,
+    g.pmdec, g.phot_g_mean_mag, g.bp_rp, g.teff_val,
+    d.r_est, d.r_lo, d.r_hi
+FROM
+	gaiadr1.tgas_source t
+    LEFT JOIN gaiadr2.hipparcos2_best_neighbour x ON x.original_ext_source_id = t.hip
+    JOIN gaiadr2.dr1_neighbourhood l ON l.dr1_source_id = t.source_id
+    JOIN gaiadr2.gaia_source g ON g.source_id = l.dr2_source_id
+    LEFT JOIN external.gaiadr2_geometric_distance d ON d.source_id = g.source_id
+WHERE
+    t.hip IS NOT NULL
+    AND x.original_ext_source_id IS NULL"""
 
 def download_gaia():
     with contextlib.suppress(FileExistsError):

@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import gzip, os, tarfile, warnings
 import numpy as np
@@ -26,11 +26,18 @@ teffBins = (teffSpec[:-1] + teffSpec[1:]) // 2
 
 celSpecs = parse_spectrum_vec(['OBAFGKM'[i//10]+str(i%10) for i in range(3,70)])
 
+def load_gaia_hip():
+    """Load the Gaia DR2 HIP sources."""
+    print('Loading Gaia DR2 sources for HIP')
+    col_names = ['source_id', 'hip_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp', 'teff_val', 'r_est']
+    t = ascii.read(os.path.join('gaia', 'gaiadr2_hip-result.csv'), include_names=col_names)
+    t.rename_column('hip_id', 'HIP')
+    return t
+
 def load_xhip():
     """Load the XHIP catalogue from the VizieR archive."""
-    print('Loading XHIP catalogue')
     with tarfile.open(os.path.join('vizier', 'xhip.tar.gz'), 'r:gz') as tf:
-        print("Loading main catalog")
+        print("Loading XHIP main catalog")
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE',
                          'e_Plx', 'Dist', 'e_Dist', 'SpType', 'RV']
@@ -50,7 +57,7 @@ def load_xhip():
 
         hip_data.add_index('HIP')
 
-        print('Loading photometric data')
+        print('Loading XHIP photometric data')
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'Vmag', 'Jmag', 'Hmag', 'Kmag', 'e_Jmag',
                          'e_Hmag', 'e_Kmag', 'B-V', 'V-I', 'e_B-V', 'e_V-I']
@@ -65,7 +72,7 @@ def load_xhip():
         photo_data.add_index('HIP')
         hip_data = join(hip_data, photo_data, join_type='left', keys='HIP')
 
-        print('Loading bibliographic data')
+        print('Loading XHIP bibliographic data')
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'HD']
             reader = ascii.get_reader(ascii.Cds,
@@ -204,12 +211,18 @@ def estimate_temperatures(hip_data, ubvri_data):
 
 def process_hip(hip_data, ubvri_data):
     compute_distances(hip_data)
-    update_coordinates(hip_data)
     parse_spectra(hip_data)
+    update_coordinates(hip_data)
     estimate_temperatures(hip_data, ubvri_data)
 
 if __name__ == '__main__':
-    hip_data = load_xhip()
-    ubvri_data = load_ubvri()
-    process_hip(hip_data, ubvri_data)
-    print(hip_data)
+    #hip_data = load_xhip()
+    #ubvri_data = load_ubvri()
+    #process_hip(hip_data, ubvri_data)
+    #print(hip_data)
+    gaia_data = join(load_gaia_hip(),
+                     load_xhip(),
+                     keys=['HIP'],
+                     join_type='outer',
+                     table_names=['gaia', 'xhip'])
+    print(gaia_data)

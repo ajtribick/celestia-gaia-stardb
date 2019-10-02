@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 import gzip, re
 import numpy as np
 from enum import IntEnum
