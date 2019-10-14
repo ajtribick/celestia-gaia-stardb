@@ -2,7 +2,9 @@
 
 import contextlib, getpass, os
 import astropy, requests
+from zipfile import ZipFile
 from astropy import units
+from astropy.io import ascii
 from astroquery.gaia import Gaia
 from astroquery.xmatch import XMatch
 from requests.exceptions import HTTPError
@@ -31,6 +33,17 @@ def proceed_checkfile(filename):
             return False
     return True
 
+def download_file(outfile_name, url):
+    if not proceed_checkfile(outfile_name):
+        return
+
+    print('Downloading ' + url)
+    response = requests.get(url, stream=True)
+    if response.status_code == 200:
+        with open(outfile_name, 'wb') as f:
+            f.write(response.raw.read())
+    else:
+        print('Failed to download')
 
 # --- GAIA DATA DOWNLOAD ---
 
@@ -58,22 +71,6 @@ FROM
     finally:
         Gaia.remove_jobs(job.jobid)
 
-def download_gaia_tgas_data():
-    query = """SELECT
-    g.source_id, l.rank, t.hip AS hip_id,
-    g.ra, g.dec, g.parallax, g.parallax_error, g.pmra,
-    g.pmdec, g.phot_g_mean_mag, g.bp_rp, g.teff_val,
-    d.r_est, d.r_lo, d.r_hi
-FROM
-	gaiadr1.tgas_source t
-    LEFT JOIN gaiadr2.hipparcos2_best_neighbour x ON x.original_ext_source_id = t.hip
-    JOIN gaiadr2.dr1_neighbourhood l ON l.dr1_source_id = t.source_id
-    JOIN gaiadr2.gaia_source g ON g.source_id = l.dr2_source_id
-    LEFT JOIN external.gaiadr2_geometric_distance d ON d.source_id = g.source_id
-WHERE
-    t.hip IS NOT NULL
-    AND x.original_ext_source_id IS NULL"""
-
 def download_gaia():
     with contextlib.suppress(FileExistsError):
         os.mkdir("gaia")
@@ -90,8 +87,24 @@ def download_gaia():
 
     Gaia.login(user=username, password=password)
     try:
-        download_gaia_data('hip_id', 'gaiadr2.hipparcos2_best_neighbour', os.path.join('gaia', 'gaiadr2_hip-result.csv'))
-        download_gaia_data('tyc2_id', 'gaiadr2.tycho2_best_neighbour', os.path.join('gaia', 'gaiadr2_tyc-result.csv'))
+        # the gaiadr2.hipparcos2_best_neighbour table misses a large number of HIP stars that are actually present
+        # so use the cone search file
+        conesearch_file = os.path.join('gaia', 'hip2conesearch.zip')
+        download_file(
+            conesearch_file,
+            'https://www.cosmos.esa.int/documents/29201/1769576/Hipparcos2GaiaDR2coneSearch.zip')
+
+        with ZipFile(conesearch_file, 'r') as csz:
+            with csz.open('Hipparcos2GaiaDR2coneSearch.csv', 'r') as f:
+                hip_map = ascii.read(f, names=['original_ext_source_id', 'source_id', 'dist'])
+
+        Gaia.upload_table(upload_resource=hip_map, table_name='hip_cone')
+        try:
+            download_gaia_data('hip_id', 'user_' + username + '.hip_cone', os.path.join('gaia', 'gaiadr2_hip-result.csv'))
+            download_gaia_data('tyc2_id', 'gaiadr2.tycho2_best_neighbour', os.path.join('gaia', 'gaiadr2_tyc-result.csv'))
+        finally:
+            Gaia.delete_user_table('hip_cone')
+
     finally:
         Gaia.logout()
 
@@ -117,18 +130,6 @@ def download_sao_xmatch():
     download_xmatch('vizier:I/131A/sao', 'vizier:I/259/tyc2', os.path.join('xmatch', 'sao_tyc2_xmatch.csv'))
 
 # --- VIZIER DOWNLOAD ---
-def download_catalog(outfile_name, url):
-    if not proceed_checkfile(outfile_name):
-        return
-
-    print('Downloading ' + url)
-    response = requests.get(url, stream=True)
-    if response.status_code == 200:
-        with open(outfile_name, 'wb') as f:
-            f.write(response.raw.read())
-    else:
-        print('Failed to download')
-
 def download_vizier():
     with contextlib.suppress(FileExistsError):
         os.mkdir('vizier')
@@ -142,7 +143,7 @@ def download_vizier():
         ('xhip.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?V/137D')]
 
     for file_name, url in files_urls:
-        download_catalog(os.path.join('vizier', file_name), url)
+        download_file(os.path.join('vizier', file_name), url)
 
 if __name__ == "__main__":
     download_gaia()
