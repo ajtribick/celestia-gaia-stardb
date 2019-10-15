@@ -36,8 +36,9 @@ def load_gaia_hip():
 
 def load_xhip():
     """Load the XHIP catalogue from the VizieR archive."""
+    print('Loading XHIP')
     with tarfile.open(os.path.join('vizier', 'xhip.tar.gz'), 'r:gz') as tf:
-        print("Loading XHIP main catalog")
+        print('  Loading main catalog')
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE',
                          'e_Plx', 'Dist', 'e_Dist', 'SpType', 'RV']
@@ -57,7 +58,7 @@ def load_xhip():
 
         hip_data.add_index('HIP')
 
-        print('Loading XHIP photometric data')
+        print('  Loading photometric data')
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'Vmag', 'Jmag', 'Hmag', 'Kmag', 'e_Jmag',
                          'e_Hmag', 'e_Kmag', 'B-V', 'V-I', 'e_B-V', 'e_V-I']
@@ -72,7 +73,7 @@ def load_xhip():
         photo_data.add_index('HIP')
         hip_data = join(hip_data, photo_data, join_type='left', keys='HIP')
 
-        print('Loading XHIP bibliographic data')
+        print('  Loading bibliographic data')
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'HD']
             reader = ascii.get_reader(ascii.Cds,
@@ -101,7 +102,6 @@ def load_ubvri():
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore', UnitsWarning)
                     return reader.read(f)
-
 
 def compute_distances(hip_data, length_kpc=1.35):
     """Compute the distance using an exponentially-decreasing prior.
