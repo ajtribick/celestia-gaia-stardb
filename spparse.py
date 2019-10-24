@@ -1,9 +1,16 @@
-import gzip, re
-import numpy as np
+"""Routines for parsing spectral types."""
+
+import re
+
 from enum import IntEnum
-from arpeggio import NoMatch, OneOrMore, Optional, ParserPython, PTNodeVisitor, RegExMatch, ZeroOrMore, visit_parse_tree
+
+import numpy as np
+
+from arpeggio import (NoMatch, OneOrMore, Optional, ParserPython, PTNodeVisitor, RegExMatch,
+                      ZeroOrMore, visit_parse_tree)
 
 class CelMkClass(IntEnum):
+    """Celestia MK and WD classes."""
     O = 0x0000
     B = 0x0100
     A = 0x0200
@@ -29,9 +36,10 @@ class CelMkClass(IntEnum):
     D = 0x1600
     DX = 0x1700
 
-celUnknownSubclass = 0x00a0
+CEL_UNKNOWN_SUBCLASS = 0x00a0
 
 class CelLumClass(IntEnum):
+    """Celestia luminosity classes."""
     Ia0 = 0x0000
     Ia = 0x0001
     Ib = 0x0002
@@ -41,6 +49,10 @@ class CelLumClass(IntEnum):
     V = 0x0006
     VI = 0x0007
     Unknown = 0x0008
+
+CEL_UNKNOWN_STAR = CelMkClass.Unknown + CEL_UNKNOWN_SUBCLASS + CelLumClass.Unknown
+
+# pylint: disable=missing-function-docstring,multiple-statements
 
 # Format specification
 
@@ -135,9 +147,13 @@ def spectrum():
         ('(', starspectrum, ')'),
         ('[', starspectrum, ']')]
 
-parser = ParserPython(spectrum, skipws=False)
+# pylint: enable=multiple-statements
 
 class SpecVisitor(PTNodeVisitor):
+    """Parse tree visitor to compute Celestia spectral type."""
+
+    # pylint: disable=unused-argument,no-self-use,redefined-outer-name
+
     def visit_spacer(self, node, children):
         return None
 
@@ -151,7 +167,7 @@ class SpecVisitor(PTNodeVisitor):
         return int(float(node.value))
 
     def visit_prefix(self, node, children):
-        if str(node) == 'esd' or str(node) =='sd':
+        if str(node) == 'esd' or str(node) == 'sd':
             return CelLumClass.VI
         elif str(node) == 'd':
             return CelLumClass.V
@@ -159,6 +175,8 @@ class SpecVisitor(PTNodeVisitor):
             return CelLumClass.III
         elif str(node) == 'c':
             return CelLumClass.Ib
+        else:
+            raise ValueError
 
     def visit_msnorange(self, node, children):
         if len(children.numeric) > 0:
@@ -181,7 +199,7 @@ class SpecVisitor(PTNodeVisitor):
     def visit_mktype(self, node, children):
         mkclass, subclass = children[0]
         if subclass is None:
-            subclass = celUnknownSubclass
+            subclass = CEL_UNKNOWN_SUBCLASS
         elif subclass < 0:
             subclass = 0x00
         elif subclass > 9:
@@ -197,7 +215,9 @@ class SpecVisitor(PTNodeVisitor):
             return CelMkClass[mkclass], subclass
 
     def visit_lumrange(self, node, children):
-        if len(children) == 2 and (children[0] == 'Ia' or children[0] == 'IA') and children[1] == '0':
+        if (len(children) == 2
+                and (children[0] == 'Ia' or children[0] == 'IA')
+                and children[1] == '0'):
             return CelLumClass.Ia0
         elif children[0] == 'Ia0' or children[0] == 'IA0' or children[0] == '0':
             return CelLumClass.Ia0
@@ -242,7 +262,7 @@ class SpecVisitor(PTNodeVisitor):
         return children[0], children[1]
 
     def visit_metalstar(self, node, children):
-        sections = { m: s for m, s in children.metalsection }
+        sections = dict(children.metalsection)
         if len(children.noprefixstar) > 0:
             sections[' '] = children.noprefixstar[0]
             first_section = sections[' ']
@@ -298,7 +318,7 @@ class SpecVisitor(PTNodeVisitor):
             lclass = CelLumClass.Unknown
 
         if scsubclass is None:
-            scsubclass = celUnknownSubclass
+            scsubclass = CEL_UNKNOWN_SUBCLASS
         elif scsubclass < 0:
             scsubclass = 0x00
         elif scsubclass > 9:
@@ -306,9 +326,9 @@ class SpecVisitor(PTNodeVisitor):
         else:
             scsubclass *= 0x10
 
-        if scclass == 'C-R' or scclass == 'R':
+        if scclass in ('C-R', 'R'):
             return CelMkClass.R, scsubclass, lclass
-        elif scclass == 'C-N' or scclass == 'N':
+        elif scclass in ('C-N', 'N'):
             return CelMkClass.N, scsubclass, lclass
         elif scclass == 'SC':
             return CelMkClass.S, scsubclass, lclass
@@ -333,28 +353,29 @@ class SpecVisitor(PTNodeVisitor):
                 wdsubclass *= 0x10
 
         else:
-            wdsubclass = celUnknownSubclass
+            wdsubclass = CEL_UNKNOWN_SUBCLASS
 
         return wdclass, wdsubclass
 
+# pylint: enable=missing-function-docstring
 
-visitor = SpecVisitor()
-multiseparator = re.compile(r'\+\ *(?:\.{2,}|(?:\(?(?:sd|d|g|c|k|h|m|g|He)?[OBAFGKM]|W[DNOCR]|wd))')
-
-celUnknownStar = CelMkClass.Unknown + celUnknownSubclass + CelLumClass.Unknown
+PARSER = ParserPython(spectrum, skipws=False)
+VISITOR = SpecVisitor()
+MULTISEPARATOR = re.compile(r'\+\ *(?:\.{2,}|(?:\(?(?:sd|d|g|c|k|h|m|g|He)?[OBAFGKM]|W[DNOCR]|wd))')
 
 def parse_spectrum(sptype):
+    """Parse a spectral type string into a Celestia spectral type."""
     # resolve ambiguity in grammar: B 0-Ia could be interpreted as (B 0-) Ia or B (0-Ia)
     # resolve in favour of latter
 
     processed_type = sptype.strip().replace('0-Ia', 'Ia-0')
 
     if not processed_type:
-        return celUnknownStar
+        return CEL_UNKNOWN_STAR
 
     # remove outer brackets
-    while ((processed_type[0] == '(' and processed_type[-1] == ')') or
-            (processed_type[0] == '[' and processed_type[-1] == ']')):
+    while ((processed_type[0] == '(' and processed_type[-1] == ')')
+           or (processed_type[0] == '[' and processed_type[-1] == ']')):
         processed_type = processed_type[1:-1]
 
     # remove leading uncertainty indicator
@@ -366,21 +387,21 @@ def parse_spectrum(sptype):
         processed_type = 'O' + processed_type[1:]
 
     # remove nebulae and novae (might otherwise be parsed as N-type)
-    if (processed_type.casefold().startswith("neb".casefold()) or
-        processed_type.casefold().startswith("nova".casefold())):
-        return celUnknownStar
+    if (processed_type.casefold().startswith("neb".casefold())
+            or processed_type.casefold().startswith("nova".casefold())):
+        return CEL_UNKNOWN_STAR
 
     # resolve ambiguity about whether + is an open-ended range or identifies a component
 
-    separator_match = multiseparator.search(processed_type)
+    separator_match = MULTISEPARATOR.search(processed_type)
     if separator_match:
         processed_type = processed_type[:separator_match.span()[0]]
 
     try:
-        parse_tree = parser.parse(processed_type)
+        parse_tree = PARSER.parse(processed_type)
     except NoMatch:
-        return celUnknownStar
+        return CEL_UNKNOWN_STAR
     else:
-        return sum(visit_parse_tree(parse_tree, visitor))
+        return sum(visit_parse_tree(parse_tree, VISITOR))
 
-parse_spectrum_vec = np.vectorize(parse_spectrum)
+parse_spectrum_vec = np.vectorize(parse_spectrum) # pylint: disable=invalid-name

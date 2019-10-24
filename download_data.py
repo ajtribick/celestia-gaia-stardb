@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 
-import contextlib, getpass, os
-import astropy, requests
+"""Routines for downloading the data files."""
+
+import contextlib
+import getpass
+import os
+
 from zipfile import ZipFile
-from astropy import units
-from astropy.io import ascii
+
+import requests
+
+from astropy import io, units
 from astroquery.gaia import Gaia
 from astroquery.xmatch import XMatch
-from requests.exceptions import HTTPError
 
 def yesno(prompt, default=False):
+    """Prompt the user for yes/no input."""
     if default:
         new_prompt = prompt + ' (Y/n): '
     else:
@@ -25,6 +31,7 @@ def yesno(prompt, default=False):
             return False
 
 def proceed_checkfile(filename):
+    """Check if a file exists, if so prompt the user if they want to replace it."""
     if os.path.exists(filename):
         if yesno(filename + ' already exists, replace?'):
             with contextlib.suppress(FileNotFoundError):
@@ -34,6 +41,7 @@ def proceed_checkfile(filename):
     return True
 
 def download_file(outfile_name, url):
+    """Download a file using requests."""
     if not proceed_checkfile(outfile_name):
         return
 
@@ -48,6 +56,7 @@ def download_file(outfile_name, url):
 # --- GAIA DATA DOWNLOAD ---
 
 def download_gaia_data(colname, xindex_table, outfile_name):
+    """Query and download Gaia data."""
     if not proceed_checkfile(outfile_name):
         return
 
@@ -72,6 +81,7 @@ FROM
         Gaia.remove_jobs(job.jobid)
 
 def download_gaia():
+    """Download data from the Gaia archive."""
     with contextlib.suppress(FileExistsError):
         os.mkdir("gaia")
 
@@ -87,8 +97,8 @@ def download_gaia():
 
     Gaia.login(user=username, password=password)
     try:
-        # the gaiadr2.hipparcos2_best_neighbour table misses a large number of HIP stars that are actually present
-        # so use the cone search file
+        # the gaiadr2.hipparcos2_best_neighbour table misses a large number of HIP stars that are
+        # actually present, so use the cone search file
         conesearch_file = os.path.join('gaia', 'hip2conesearch.zip')
         download_file(
             conesearch_file,
@@ -96,12 +106,17 @@ def download_gaia():
 
         with ZipFile(conesearch_file, 'r') as csz:
             with csz.open('Hipparcos2GaiaDR2coneSearch.csv', 'r') as f:
-                hip_map = ascii.read(f, names=['original_ext_source_id', 'source_id', 'dist'])
+                hip_map = io.ascii.read(f, names=['original_ext_source_id', 'source_id', 'dist'])
+
+        gaia_downloads = [
+            ('hip_id', 'user_'+username+'.hip_cone', 'gaiadr2_hip-result.csv'),
+            ('tyc2_id', 'gaiadr2.tycho2_best_neighbour', 'gaiadr2_tyc-result.csv')
+        ]
 
         Gaia.upload_table(upload_resource=hip_map, table_name='hip_cone')
         try:
-            download_gaia_data('hip_id', 'user_' + username + '.hip_cone', os.path.join('gaia', 'gaiadr2_hip-result.csv'))
-            download_gaia_data('tyc2_id', 'gaiadr2.tycho2_best_neighbour', os.path.join('gaia', 'gaiadr2_tyc-result.csv'))
+            for colname, xindex_table, filename in gaia_downloads:
+                download_gaia_data(colname, xindex_table, os.path.join('gaia', filename))
         finally:
             Gaia.delete_user_table('hip_cone')
 
@@ -111,6 +126,7 @@ def download_gaia():
 # --- SAO XMATCH DOWNLOAD ---
 
 def download_xmatch(cat1, cat2, outfile_name):
+    """Download a cross-match from VizieR."""
     if not proceed_checkfile(outfile_name):
         return
 
@@ -118,19 +134,25 @@ def download_xmatch(cat1, cat2, outfile_name):
                           cat2=cat2,
                           max_distance=5 * units.arcsec)
 
-    astropy.io.ascii.write(result, outfile_name, format='csv')
+    io.ascii.write(result, outfile_name, format='csv')
 
 def download_sao_xmatch():
+    """Download cross-matches to the SAO catalogue."""
     with contextlib.suppress(FileExistsError):
         os.mkdir("xmatch")
 
-    print("SAO-HIP cross match")
-    download_xmatch('vizier:I/131A/sao', 'vizier:I/311/hip2', os.path.join('xmatch', 'sao_hip_xmatch.csv'))
-    print("SAO-TYC2 cross match")
-    download_xmatch('vizier:I/131A/sao', 'vizier:I/259/tyc2', os.path.join('xmatch', 'sao_tyc2_xmatch.csv'))
+    cross_matches = [
+        ('vizier:I/131A/sao', 'vizier:I/311/hip2', 'sao_hip_xmatch.csv'),
+        ('vizier:I/131A/sao', 'vizier:I/259/tyc2', 'sao_tyc2_xmatch.csv')
+    ]
+
+    for cat1, cat2, filename in cross_matches:
+        print('Downloading '+cat1+'-'+cat2+' crossmatch')
+        download_xmatch(cat1, cat2, os.path.join('xmatch', filename))
 
 # --- VIZIER DOWNLOAD ---
 def download_vizier():
+    """Download catalogue archive files from VizieR."""
     with contextlib.suppress(FileExistsError):
         os.mkdir('vizier')
 
