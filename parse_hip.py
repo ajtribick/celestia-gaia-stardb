@@ -12,7 +12,7 @@ import astropy.units as u
 
 from astropy import io
 from astropy.coordinates import ICRS, SkyCoord
-from astropy.table import join
+from astropy.table import join, unique
 from astropy.time import Time
 from astropy.units import UnitsWarning
 
@@ -184,7 +184,9 @@ def update_coordinates(hip_data):
 def parse_spectra(hip_data):
     """Parse the spectral types into the celestia.Sci format."""
     print('Parsing spectral types')
-    hip_data['CelSpec'] = parse_spectrum_vec(hip_data['SpType'].filled(''))
+    sptypes = unique(hip_data['SpType',])
+    sptypes['CelSpec'] = parse_spectrum_vec(sptypes['SpType'].filled(''))
+    return join(hip_data, sptypes)
 
 def estimate_temperature(ubvri_data, b_v, e_bv, v_i, e_vi, v_k, e_vk, j_k, e_jk, h_k, e_hk):
     """Estimate the temperature of one star from color indices."""
