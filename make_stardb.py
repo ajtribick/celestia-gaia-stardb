@@ -274,3 +274,6 @@ def make_stardb():
 
     for fieldname, outfile in xindices:
         write_xindex(data, fieldname, os.path.join('output', outfile))
+
+if __name__ == '__main__':
+    make_stardb()
