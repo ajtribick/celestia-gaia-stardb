@@ -90,6 +90,15 @@ def load_xhip():
 
         return join(hip_data, biblio_data, join_type='left', keys='HIP')
 
+def load_sao():
+    """Load the SAO-HIP cross match."""
+    print('Loading SAO-HIP cross match')
+    data = io.ascii.read(os.path.join('xmatch', 'sao_hip_xmatch.csv'),
+                         include_names=['HIP', 'SAO'],
+                         format='csv')
+    data.add_index('HIP')
+    return data
+
 def compute_distances(hip_data, length_kpc=1.35):
     """Compute the distance using an exponentially-decreasing prior.
 
@@ -161,6 +170,8 @@ def process_hip():
                 keys=['HIP'],
                 join_type='outer',
                 table_names=['gaia', 'xhip'])
+
+    data = join(data, load_sao(), keys=['HIP'], join_type='left')
 
     data['dist_use'] = data['r_est_gaia'].filled(data['r_est_xhip'].filled(np.nan))
     data['ra'] = data['ra_gaia'].filled(data['ra_xhip'])

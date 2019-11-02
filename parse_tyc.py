@@ -22,6 +22,7 @@ def load_gaia_tyc():
     tycs = np.array(np.char.split(gaia['tyc2_id'], '-').tolist()).astype(np.int64)
     gaia['TYC'] = tycs[:, 0] + tycs[:, 1]*10000 + tycs[:, 2]*1000000000
     gaia.remove_column('tyc2_id')
+    gaia.add_index('TYC')
 
     gaia['ra'].unit = u.deg
     gaia['dec'].unit = u.deg
@@ -47,6 +48,7 @@ def load_tyc_spec():
 
     data['TYC'] = data['TYC1'] + data['TYC2']*10000 + data['TYC3']*1000000000
     data.remove_columns(['TYC1', 'TYC2', 'TYC3'])
+    data.add_index('TYC')
     return data
 
 def load_ascc():
@@ -90,6 +92,18 @@ def load_ascc():
 
     data = unique(combined.group_by(['TYC', 'd3']), keys=['TYC'])
     data.remove_column('d3')
+    data.add_index('TYC')
+    return data
+
+def load_sao():
+    """Load the SAO-TYC2 cross match."""
+    print('Loading SAO-TYC2 cross match')
+    data = io.ascii.read(os.path.join('xmatch', 'sao_tyc2_xmatch.csv'),
+                         include_names=['SAO', 'TYC1', 'TYC2', 'TYC3'],
+                         format='csv')
+    data['TYC'] = data['TYC1'] + data['TYC2']*10000 + data['TYC3']*1000000000
+    data.remove_columns(['TYC1', 'TYC2', 'TYC3'])
+    data.add_index('TYC')
     return data
 
 def merge_tables():
@@ -97,6 +111,7 @@ def merge_tables():
     data = join(load_gaia_tyc(), load_tyc_spec(), keys=['TYC'], join_type='left')
     data = join(data, load_ascc(), keys=['TYC'], join_type='left')
     data['HD'].mask = np.logical_or(data['HD'].mask, data['HD'] == 0)
+    data = join(data, load_sao(), keys=['TYC'], join_type='left')
     return data
 
 def process_tyc():

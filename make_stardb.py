@@ -266,4 +266,11 @@ def make_stardb():
         os.mkdir('output')
 
     write_starsdat(data, os.path.join('output', 'stars.dat'))
-    write_xindex(data, 'HD', os.path.join('output', 'hdxindex.dat'))
+
+    xindices = [
+        ('HD', 'hdxindex.dat'),
+        ('SAO', 'saoxindex.dat')
+    ]
+
+    for fieldname, outfile in xindices:
+        write_xindex(data, fieldname, os.path.join('output', outfile))
