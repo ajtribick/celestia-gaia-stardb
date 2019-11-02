@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """Routines for parsing the TYC2 data."""
 
 import gzip
@@ -12,17 +10,26 @@ import astropy.units as u
 from astropy import io
 from astropy.table import join, unique, vstack
 
-from spparse import parse_spectrum_vec
-
 def load_gaia_tyc():
     """Load the Gaia DR2 TYC2 sources."""
     print('Loading Gaia DR2 sources for TYC2')
     col_names = ['source_id', 'tyc2_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp',
                  'teff_val', 'r_est']
-    gaia = io.ascii.read(os.path.join('gaia', 'gaiadr2_tyc-result.csv'), include_names=col_names)
+    gaia = io.ascii.read(os.path.join('gaia', 'gaiadr2_tyc-result.csv'),
+                         include_names=col_names,
+                         format='csv')
+
     tycs = np.array(np.char.split(gaia['tyc2_id'], '-').tolist()).astype(np.int64)
     gaia['TYC'] = tycs[:, 0] + tycs[:, 1]*10000 + tycs[:, 2]*1000000000
     gaia.remove_column('tyc2_id')
+
+    gaia['ra'].unit = u.deg
+    gaia['dec'].unit = u.deg
+    gaia['phot_g_mean_mag'].unit = u.mag
+    gaia['bp_rp'].unit = u.mag
+    gaia['teff_val'].unit = u.K
+    gaia['r_est'].unit = u.pc
+
     return gaia
 
 def load_tyc_spec():
@@ -40,12 +47,7 @@ def load_tyc_spec():
 
     data['TYC'] = data['TYC1'] + data['TYC2']*10000 + data['TYC3']*1000000000
     data.remove_columns(['TYC1', 'TYC2', 'TYC3'])
-
-    print('  Parsing spectra')
-    sptypes = unique(data['SpType',])
-    sptypes['CelSpec'] = parse_spectrum_vec(sptypes['SpType'].filled(''))
-
-    return join(data, sptypes)
+    return data
 
 def load_ascc():
     """Load ASCC from VizieR archive."""
@@ -86,4 +88,19 @@ def load_ascc():
         combined = vstack([load_section(tf, m) for m in tf if is_data(m)],
                           join_type='exact')
 
-    return unique(combined.group_by(['TYC', 'd3']), keys=['TYC'])
+    data = unique(combined.group_by(['TYC', 'd3']), keys=['TYC'])
+    data.remove_column('d3')
+    return data
+
+def merge_tables():
+    """Merges the tables."""
+    data = join(load_gaia_tyc(), load_tyc_spec(), keys=['TYC'], join_type='left')
+    data = join(data, load_ascc(), keys=['TYC'], join_type='left')
+    data['HD'].mask = np.logical_or(data['HD'].mask, data['HD'] == 0)
+    return data
+
+def process_tyc():
+    """Processes the TYC data."""
+    data = merge_tables()
+    data.rename_column('r_est', 'dist_use')
+    return data

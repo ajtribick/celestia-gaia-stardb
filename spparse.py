@@ -365,9 +365,9 @@ MULTISEPARATOR = re.compile(r'\+\ *(?:\.{2,}|(?:\(?(?:sd|d|g|c|k|h|m|g|He)?[OBAF
 
 def parse_spectrum(sptype):
     """Parse a spectral type string into a Celestia spectral type."""
+
     # resolve ambiguity in grammar: B 0-Ia could be interpreted as (B 0-) Ia or B (0-Ia)
     # resolve in favour of latter
-
     processed_type = sptype.strip().replace('0-Ia', 'Ia-0')
 
     if not processed_type:
@@ -401,7 +401,7 @@ def parse_spectrum(sptype):
         parse_tree = PARSER.parse(processed_type)
     except NoMatch:
         return CEL_UNKNOWN_STAR
-    else:
-        return sum(visit_parse_tree(parse_tree, VISITOR))
 
-parse_spectrum_vec = np.vectorize(parse_spectrum) # pylint: disable=invalid-name
+    return sum(visit_parse_tree(parse_tree, VISITOR))
+
+parse_spectrum_vec = np.vectorize(parse_spectrum, otypes=[np.uint16]) # pylint: disable=invalid-name
