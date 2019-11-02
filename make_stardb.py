@@ -2,8 +2,10 @@
 
 """Makes the star database."""
 
+import contextlib
 import gzip
 import os
+import struct
 import tarfile
 import warnings
 
@@ -233,3 +235,35 @@ def process_data():
     data['z'].unit = u.lyr
 
     return data
+
+def write_starsdat(data, outfile):
+    """Write the stars.dat file."""
+    print('Writing stars.dat')
+    with open(outfile, 'wb') as f:
+        f.write(struct.pack('<8sHL', b'CELSTARS', 0x0100, len(data)))
+        print(f'  Writing {len(data)} records')
+        for hip, x, y, z, vmag_abs, celspec in zip(data['HIP'], data['x'], data['y'], data['z'],
+                                                   data['Vmag_abs'], data['CelSpec']):
+            f.write(struct.pack('<L3fhH', hip, x, y, z, int(round(vmag_abs*256)), celspec))
+
+def write_xindex(data, field, outfile):
+    """Write a cross-index file."""
+    print('Writing '+field+' cross-index')
+    print('  Extracting cross-index data')
+    data = data[np.logical_not(data[field].mask)]['HIP', field]
+    data = unique(data.group_by([field, 'HIP']), keys=[field])
+    print(f'  Writing {len(data)} records')
+    with open(outfile, 'wb') as f:
+        f.write(struct.pack('<8sH', b'CELINDEX', 0x0100))
+        for hip, cat in zip(data['HIP'], data[field]):
+            f.write(struct.pack('<2L', cat, hip))
+
+def make_stardb():
+    """Make the Celestia star database files."""
+    data = process_data()
+
+    with contextlib.suppress(FileExistsError):
+        os.mkdir('output')
+
+    write_starsdat(data, os.path.join('output', 'stars.dat'))
+    write_xindex(data, 'HD', os.path.join('output', 'hdxindex.dat'))
