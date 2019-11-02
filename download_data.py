@@ -83,16 +83,16 @@ FROM
 def download_gaia():
     """Download data from the Gaia archive."""
     with contextlib.suppress(FileExistsError):
-        os.mkdir("gaia")
+        os.mkdir('gaia')
 
-    print("Login to Gaia Archive")
-    username = input("Username: ")
+    print('Login to Gaia Archive')
+    username = input('Username: ')
     if not username:
-        print("Login aborted")
+        print('Login aborted')
         return
-    password = getpass.getpass("Password: ")
+    password = getpass.getpass('Password: ')
     if not password:
-        print("Login aborted")
+        print('Login aborted')
         return
 
     Gaia.login(user=username, password=password)
@@ -139,7 +139,7 @@ def download_xmatch(cat1, cat2, outfile_name):
 def download_sao_xmatch():
     """Download cross-matches to the SAO catalogue."""
     with contextlib.suppress(FileExistsError):
-        os.mkdir("xmatch")
+        os.mkdir('xmatch')
 
     cross_matches = [
         ('vizier:I/131A/sao', 'vizier:I/311/hip2', 'sao_hip_xmatch.csv'),
@@ -158,7 +158,6 @@ def download_vizier():
 
     files_urls = [
         ('ascc.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?I/280B'),
-        ('tyc2hd.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?IV/25'),
         ('tyc2spec.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?III/231'),
         ('tyc2teff.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?V/136'),
         ('ubvriteff.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?J/ApJS/193/1'),
