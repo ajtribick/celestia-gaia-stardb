@@ -1,13 +1,18 @@
 Gaia DR2 for celestia.Sci
 =========================
 
-This repository contains Python scripts to generate a celestia.Sci star
-database from the *Gaia* Data Release 2 data, supplemented by the XHIP
+This repository contains Python scripts to generate a celestia.Sci/Celestia
+star database from the *Gaia* Data Release 2 data, supplemented by the XHIP
 catalogue.
 
 In order to limit the download size required and to maintain compatibility
 with the use of HIP/TYC2 identifiers as the primary key for stars in
 celestia.Sci, only Gaia data for HIP and TYC2 stars is processed.
+
+Unless you are editing the code, it is recommended to use the pre-built files
+in the release rather than running these scripts manually. The data files in
+the release may be used under a CC-BY-SA 4.0 license
+(https://creativecommons.org/licenses/by-sa/4.0/legalcode)
 
 ## Prerequisites
 
@@ -20,6 +25,7 @@ celestia.Sci, only Gaia data for HIP and TYC2 stars is processed.
 ## Folder contents
 
 -  `download_data.py`: script to download the data files
+-  `make_stardb.py`: script to build the star database and cross-index files
 
 ## How to use
 
@@ -48,6 +54,9 @@ celestia.Sci, only Gaia data for HIP and TYC2 stars is processed.
 
 8.  The stars.dat, hdxindex.dat and saoxindex.dat files will be written into
     the output folder
+
+9.  Copy the files into the `data` folder of the celestia.Sci/Celestia
+    distribution.
 
 ## Source catalogues
 
