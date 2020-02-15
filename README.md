@@ -9,9 +9,9 @@ In order to limit the download size required and to maintain compatibility
 with the use of HIP/TYC2 identifiers as the primary key for stars in
 celestia.Sci, only Gaia data for HIP and TYC2 stars is processed.
 
-Unless you are editing the code, it is recommended to use the pre-built files
-in the release rather than running these scripts manually. The data files in
-the release may be used under a CC-BY-SA 4.0 license
+**Unless you are editing the code, it is recommended to use the pre-built
+files in the release rather than running these scripts manually.** The data
+files in the release may be used under a CC-BY-SA 4.0 license
 (https://creativecommons.org/licenses/by-sa/4.0/legalcode)
 
 ## Prerequisites
