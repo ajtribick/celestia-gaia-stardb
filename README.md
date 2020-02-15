@@ -1,5 +1,5 @@
-Gaia DR2 for celestia.Sci
-=========================
+Gaia DR2 for celestia.Sci/Celestia
+==================================
 
 This repository contains Python scripts to generate a celestia.Sci/Celestia
 star database from the *Gaia* Data Release 2 data, supplemented by the XHIP
@@ -7,7 +7,7 @@ catalogue.
 
 In order to limit the download size required and to maintain compatibility
 with the use of HIP/TYC2 identifiers as the primary key for stars in
-celestia.Sci, only Gaia data for HIP and TYC2 stars is processed.
+celestia.Sci/Celestia, only Gaia data for HIP and TYC2 stars is processed.
 
 **Unless you are editing the code, it is recommended to use the pre-built
 files in the release rather than running these scripts manually.** The data
@@ -20,7 +20,7 @@ files in the release may be used under a CC-BY-SA 4.0 license
 -  *Gaia* archive account (https://gea.esac.esa.int/archive/)
 -  Python 3.6 or higher (preferably 64-bit, as the memory usage can be quite
    high)
--  celestia.Sci
+-  celestia.Sci/Celestia
 
 ## Folder contents
 
