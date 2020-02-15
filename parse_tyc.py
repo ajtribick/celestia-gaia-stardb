@@ -197,9 +197,17 @@ def load_sao():
     """Load the SAO-TYC2 cross match."""
     print('Loading SAO-TYC2 cross match')
     data = io.ascii.read(os.path.join('xmatch', 'sao_tyc2_xmatch.csv'),
-                         include_names=['SAO', 'TYC1', 'TYC2', 'TYC3'],
+                         include_names=['SAO', 'TYC1', 'TYC2', 'TYC3', 'angDist', 'delFlag'],
                          format='csv')
+
+    data = data[data['delFlag'].mask]
+    data.remove_column('delFlag')
+
     parse_tyc_cols(data)
+
+    data = unique(data.group_by(['TYC', 'angDist']), keys=['TYC'])
+    data.remove_column('angDist')
+
     data.add_index('TYC')
     return data
 

@@ -27,7 +27,7 @@ import astropy.units as u
 
 from astropy import io
 from astropy.coordinates import ICRS, SkyCoord
-from astropy.table import join
+from astropy.table import join, unique
 from astropy.time import Time
 from astropy.units import UnitsWarning
 
@@ -111,8 +111,15 @@ def load_sao():
     """Load the SAO-HIP cross match."""
     print('Loading SAO-HIP cross match')
     data = io.ascii.read(os.path.join('xmatch', 'sao_hip_xmatch.csv'),
-                         include_names=['HIP', 'SAO'],
+                         include_names=['HIP', 'SAO', 'angDist', 'delFlag'],
                          format='csv')
+
+    data = data[data['delFlag'].mask]
+    data.remove_column('delFlag')
+
+    data = unique(data.group_by(['HIP', 'angDist']), keys=['HIP'])
+    data.remove_column('angDist')
+
     data.add_index('HIP')
     return data
 
