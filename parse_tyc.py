@@ -123,7 +123,7 @@ def load_ascc():
                 data = vstack([data, load_section(tf, data_file)], join_type='exact')
 
     data = unique(data.group_by(['TYC', 'd3']), keys=['TYC'])
-    data.remove_column('d3')
+    data.rename_column('d3', 'Comp')
     data.add_index('TYC')
     return data
 

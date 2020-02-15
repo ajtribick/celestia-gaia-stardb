@@ -56,7 +56,7 @@ def load_xhip():
     with tarfile.open(os.path.join('vizier', 'xhip.tar.gz'), 'r:gz') as tf:
         print('  Loading main catalog')
         with tf.extractfile('./ReadMe') as readme:
-            col_names = ['HIP', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE',
+            col_names = ['HIP', 'Comp', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE',
                          'e_Plx', 'Dist', 'e_Dist', 'SpType', 'RV']
             fill_values = [
                 ('', '-1', 'Tc', 'Lc'),

@@ -267,8 +267,9 @@ def write_xindex(data, field, outfile):
     """Write a cross-index file."""
     print('Writing '+field+' cross-index')
     print('  Extracting cross-index data')
-    data = data[np.logical_not(data[field].mask)]['HIP', field]
-    data = unique(data.group_by([field, 'HIP']), keys=[field])
+    data = data[np.logical_not(data[field].mask)]['HIP', 'Comp', field]
+    data['Comp'] = data['Comp'].filled('')
+    data = unique(data.group_by([field, 'Comp', 'HIP']), keys=[field])
     print(f'  Writing {len(data)} records')
     with open(outfile, 'wb') as f:
         f.write(struct.pack('<8sH', b'CELINDEX', 0x0100))
