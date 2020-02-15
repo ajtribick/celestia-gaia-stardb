@@ -29,6 +29,9 @@ files in the release may be used under a CC-BY-SA 4.0 license
 
 ## How to use
 
+Please ensure you have read through the Prerequisites section and all the
+steps below **before** you begin.
+
 1.  Clone or download this repository
 2.  Open a command window in the repository directory
 3.  Set up a Python 3 virtual environment
@@ -60,20 +63,20 @@ files in the release may be used under a CC-BY-SA 4.0 license
 
 ## Source catalogues
 
-- Gaia Data Release 2 (https://gea.esac.esa.int/archive/)
-    - Gaia Collaboration et al. (2016), A&A 595, id.A1, "The Gaia mission"
-    - Gaia Collaboration et al. (2018), A&A 616, id.A1, "Gaia Data Release 2.
-      Summary of the contents and survey properties"
-    - Andrae et al. (2018), A&A 616, id.A8, "Gaia Data Release 2. First
+- *Gaia* Data Release 2 (https://gea.esac.esa.int/archive/)
+    - *Gaia* Collaboration et al. (2016), A&A 595, id.A1, "The *Gaia* mission"
+    - *Gaia* Collaboration et al. (2018), A&A 616, id.A1, "*Gaia* Data
+      Release 2. Summary of the contents and survey properties"
+    - Andrae et al. (2018), A&A 616, id.A8, "*Gaia* Data Release 2. First
       stellar parameters from Apsis"
-    - Marrese et al. (2018), A&A 621, id.A144, "Gaia Data Release 2.
+    - Marrese et al. (2018), A&A 621, id.A144, "*Gaia* Data Release 2.
       Cross-match with external catalogues: algorithms and results"
 
-- Gaia Data Release 2 Geometric Distances
+- *Gaia* Data Release 2 Geometric Distances
   (http://www.mpia.de/~calj/gdr2_distances/main.html)
 
   Bailer-Jones et al. (2018), AJ 156(2), id.58 "Estimating Distance from
-  Parallaxes. IV. Distances to 1.33 Billion Stars in Gaia Data Release 2"
+  Parallaxes. IV. Distances to 1.33 Billion Stars in *Gaia* Data Release 2"
 
 - Extended Hipparcos Compilation (XHIP)
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/V/137D)
@@ -137,8 +140,8 @@ files in the release may be used under a CC-BY-SA 4.0 license
   Parallaxes"
 
 - Astraatmadja & Bailer-Jones (2016), ApJ 833(1), id.119 "Estimating
-  Distances from Parallaxes. III. Distances of Two Million Stars in the Gaia
-  DR1 Catalogue"
+  Distances from Parallaxes. III. Distances of Two Million Stars in the
+  *Gaia* DR1 Catalogue"
 
 ## Acknowledgements
 
