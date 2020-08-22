@@ -37,6 +37,14 @@ from parse_hip import process_hip
 from parse_tyc import process_tyc
 from spparse import CEL_UNKNOWN_STAR, parse_spectrum_vec
 
+# remove the following objects from the output
+
+EXCLUSIONS = [
+    60936,  # quasar 3C 273
+    114110, # non-existent star (see HIP1 errata)
+    114176, # non-existent star (see HIP1 errata)
+]
+
 # temperatures from star.cpp, spectral types O3-M9
 
 TEFF_SPEC = np.array([
@@ -214,6 +222,7 @@ def process_data():
     """Processes the missing data values."""
     data = merge_all()
     data = data[np.logical_not(data['dist_use'].mask)]
+    data = data[np.isin(data['HIP'], EXCLUSIONS, invert=True)]
     estimate_magnitudes(data)
     data = parse_spectra(data)
     unknown_spectra = data[data['CelSpec'] == CEL_UNKNOWN_STAR]['HIP', 'teff_val', 'B-V', 'e_B-V',
