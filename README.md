@@ -61,7 +61,9 @@ steps below **before** you begin.
 9.  Copy the files into the `data` folder of the celestia.Sci/Celestia
     distribution.
 
-## Source catalogues
+## References
+
+### Source catalogues
 
 - *Gaia* Data Release 2 (https://gea.esac.esa.int/archive/)
     - *Gaia* Collaboration et al. (2016), A&A 595, id.A1, "The *Gaia* mission"
@@ -105,7 +107,7 @@ steps below **before** you begin.
 
   SAO Staff, "Smithsonian Astrophysical Observatory Star Catalog (1990)"
 
-## Additional catalogues of interest
+### Additional catalogues of interest
 
 - The Hipparcos and Tycho Catalogues (1997)
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/I/239)
@@ -128,7 +130,7 @@ steps below **before** you begin.
   Cannon & Pickering (1918–1924), Annals of the Astronomical Observatory of
   Harvard College
 
-## References used for data processing
+### Data processing
 
 - UBVRIJHK color-temperature calibration
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/J/ApJS/193/1)
