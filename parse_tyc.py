@@ -23,9 +23,9 @@ import re
 import tarfile
 
 import numpy as np
+import astropy.io.ascii as io_ascii
 import astropy.units as u
 
-from astropy import io
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
 def parse_tyc_string(data, src_column, dest_column='TYC'):
@@ -46,7 +46,7 @@ def load_gaia_tyc():
     print('Loading Gaia DR2 sources for TYC2')
     col_names = ['source_id', 'tyc2_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp',
                  'teff_val', 'r_est']
-    gaia = io.ascii.read(os.path.join('gaia', 'gaiadr2_tyc-result.csv'),
+    gaia = io_ascii.read(os.path.join('gaia', 'gaiadr2_tyc-result.csv'),
                          include_names=col_names,
                          format='csv')
 
@@ -68,7 +68,7 @@ def load_tyc_spec():
     with tarfile.open(os.path.join('vizier', 'tyc2spec.tar.gz')) as tf:
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['TYC1', 'TYC2', 'TYC3', 'SpType']
-            reader = io.ascii.get_reader(io.ascii.Cds,
+            reader = io_ascii.get_reader(io_ascii.Cds,
                                          readme=readme,
                                          include_names=col_names)
             reader.data.table_name = 'catalog.dat'
@@ -85,7 +85,7 @@ def load_ascc():
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['Bmag', 'Vmag', 'e_Bmag', 'e_Vmag', 'd3', 'TYC1', 'TYC2', 'TYC3', 'HD',
                          'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag']
-            reader = io.ascii.get_reader(io.ascii.Cds,
+            reader = io_ascii.get_reader(io_ascii.Cds,
                                          readme=readme,
                                          include_names=col_names)
             reader.data.table_name = 'cc*.dat'
@@ -196,7 +196,7 @@ def load_tyc_teff():
 def load_sao():
     """Load the SAO-TYC2 cross match."""
     print('Loading SAO-TYC2 cross match')
-    data = io.ascii.read(os.path.join('xmatch', 'sao_tyc2_xmatch.csv'),
+    data = io_ascii.read(os.path.join('xmatch', 'sao_tyc2_xmatch.csv'),
                          include_names=['SAO', 'TYC1', 'TYC2', 'TYC3', 'angDist', 'delFlag'],
                          format='csv')
 

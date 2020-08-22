@@ -27,9 +27,9 @@ import tarfile
 import warnings
 
 import numpy as np
+import astropy.io.ascii as io_ascii
 import astropy.units as u
 
-from astropy import io
 from astropy.table import MaskedColumn, join, unique, vstack
 from astropy.units import UnitsWarning
 
@@ -66,7 +66,7 @@ def load_ubvri():
     with tarfile.open(os.path.join('vizier', 'ubvriteff.tar.gz'), 'r:gz') as tf:
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['V-K', 'B-V', 'V-I', 'J-K', 'H-K', 'Teff']
-            reader = io.ascii.get_reader(io.ascii.Cds,
+            reader = io_ascii.get_reader(io_ascii.Cds,
                                          readme=readme,
                                          include_names=col_names)
             reader.data.table_name = 'table3.dat'

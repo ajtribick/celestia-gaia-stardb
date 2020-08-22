@@ -23,9 +23,9 @@ import tarfile
 import warnings
 
 import numpy as np
+import astropy.io.ascii as io_ascii
 import astropy.units as u
 
-from astropy import io
 from astropy.coordinates import ICRS, SkyCoord
 from astropy.table import join, unique
 from astropy.time import Time
@@ -36,7 +36,7 @@ def load_gaia_hip():
     print('Loading Gaia DR2 sources for HIP')
     col_names = ['source_id', 'hip_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp',
                  'teff_val', 'r_est']
-    gaia = io.ascii.read(os.path.join('gaia', 'gaiadr2_hip-result.csv'),
+    gaia = io_ascii.read(os.path.join('gaia', 'gaiadr2_hip-result.csv'),
                          include_names=col_names,
                          format='csv')
     gaia.rename_column('hip_id', 'HIP')
@@ -62,7 +62,7 @@ def load_xhip():
                 ('', '-1', 'Tc', 'Lc'),
                 ('', 'NaN', 'phi')
             ]
-            reader = io.ascii.get_reader(io.ascii.Cds,
+            reader = io_ascii.get_reader(io_ascii.Cds,
                                          readme=readme,
                                          include_names=col_names,
                                          # workaround for bug in astropy where nullability is
@@ -82,7 +82,7 @@ def load_xhip():
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'Vmag', 'Jmag', 'Hmag', 'Kmag', 'e_Jmag',
                          'e_Hmag', 'e_Kmag', 'B-V', 'V-I', 'e_B-V', 'e_V-I']
-            reader = io.ascii.get_reader(io.ascii.Cds,
+            reader = io_ascii.get_reader(io_ascii.Cds,
                                          readme=readme,
                                          include_names=col_names)
             reader.data.table_name = 'photo.dat'
@@ -96,7 +96,7 @@ def load_xhip():
         print('  Loading bibliographic data')
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['HIP', 'HD']
-            reader = io.ascii.get_reader(io.ascii.Cds,
+            reader = io_ascii.get_reader(io_ascii.Cds,
                                          readme=readme,
                                          include_names=col_names)
             reader.data.table_name = 'biblio.dat'
@@ -110,7 +110,7 @@ def load_xhip():
 def load_sao():
     """Load the SAO-HIP cross match."""
     print('Loading SAO-HIP cross match')
-    data = io.ascii.read(os.path.join('xmatch', 'sao_hip_xmatch.csv'),
+    data = io_ascii.read(os.path.join('xmatch', 'sao_hip_xmatch.csv'),
                          include_names=['HIP', 'SAO', 'angDist', 'delFlag'],
                          format='csv')
 
