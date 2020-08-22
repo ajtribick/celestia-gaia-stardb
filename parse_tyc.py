@@ -26,7 +26,7 @@ import numpy as np
 import astropy.units as u
 
 from astropy import io
-from astropy.table import Table, join, unique, vstack
+from astropy.table import MaskedColumn, Table, join, unique, vstack
 
 def parse_tyc_string(data, src_column, dest_column='TYC'):
     """Parse a TYC string into a synthetic HIP identifier."""
@@ -214,7 +214,7 @@ def load_sao():
 def merge_tables():
     """Merges the tables."""
     data = join(load_gaia_tyc(), load_tyc_spec(), keys=['TYC'], join_type='left')
-    data = join(data, load_ascc(), keys=['TYC'], join_type='left')
+    data = join(data, load_ascc(), keys=['TYC'], join_type='left', metadata_conflicts='silent')
     data['HD'].mask = np.logical_or(data['HD'].mask, data['HD'] == 0)
     data = join(data,
                 load_tyc_teff(),
@@ -222,7 +222,7 @@ def merge_tables():
                 join_type='left',
                 table_names=('gaia', 'tycteff'))
 
-    data['teff_val'] = data['teff_val_gaia'].filled(data['teff_val_tycteff'].filled(np.nan))
+    data['teff_val'] = MaskedColumn(data['teff_val_gaia'].filled(data['teff_val_tycteff'].filled(np.nan)))
     data['teff_val'].mask = np.isnan(data['teff_val'])
     data.remove_columns(['teff_val_tycteff', 'teff_val_gaia'])
 

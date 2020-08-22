@@ -30,7 +30,7 @@ import numpy as np
 import astropy.units as u
 
 from astropy import io
-from astropy.table import join, unique, vstack
+from astropy.table import MaskedColumn, join, unique, vstack
 from astropy.units import UnitsWarning
 
 from parse_hip import process_hip
@@ -73,7 +73,7 @@ def parse_spectra(data):
     print('Parsing spectral types')
     data['SpType'] = data['SpType'].filled('')
     sptypes = unique(data['SpType',])
-    sptypes['CelSpec'] = parse_spectrum_vec(sptypes['SpType'].filled(''))
+    sptypes['CelSpec'] = parse_spectrum_vec(sptypes['SpType'])
     return join(data, sptypes)
 
 def estimate_magnitudes(data):
@@ -87,12 +87,13 @@ def estimate_magnitudes(data):
     bp_rp = data['bp_rp'].filled(0)
     bp_rp2 = bp_rp**2
 
-    data['Vmag'] = data['Vmag'].filled(data['phot_g_mean_mag'].filled(np.nan)
-                                       + 0.01760
-                                       + bp_rp*0.006860
-                                       + bp_rp2*0.1732)
-    data['e_Vmag'] = data['e_Vmag'].filled(0.045858)
-    data['Vmag'].mask = np.logical_or(data['Vmag'].mask, np.isnan(data['Vmag']))
+    data['Vmag'] = MaskedColumn(
+        data['Vmag'].filled(data['phot_g_mean_mag'].filled(np.nan)
+                            + 0.01760
+                            + bp_rp*0.006860
+                            + bp_rp2*0.1732))
+    data['e_Vmag'] = MaskedColumn(data['e_Vmag'].filled(0.045858))
+    data['Vmag'].mask = np.isnan(data['Vmag'])
     data['e_Vmag'].mask = data['Vmag'].mask
 
     bp_rp = data['bp_rp'].filled(np.nan)
@@ -112,16 +113,16 @@ def estimate_magnitudes(data):
     f_e_hmag = data['e_Hmag'].filled(np.nan)
     f_e_kmag = data['e_Kmag'].filled(np.nan)
 
-    data['B-V'] = data['B-V'].filled(f_bmag - f_vmag)
-    data['e_B-V'] = data['e_B-V'].filled(np.sqrt(f_e_bmag**2 + f_e_vmag**2))
-    data['V-I'] = data['V-I'].filled(f_vmag - imag)
-    data['e_V-I'] = data['e_V-I'].filled(np.sqrt(f_e_vmag**2 + e_imag**2))
-    data['V-K'] = f_vmag - f_kmag
-    data['e_V-K'] = np.sqrt(f_e_vmag**2 + f_e_kmag**2)
-    data['J-K'] = f_jmag - f_kmag
-    data['e_J-K'] = np.sqrt(f_e_jmag**2 + f_e_kmag**2)
-    data['H-K'] = f_hmag - f_kmag
-    data['e_H-K'] = np.sqrt(f_e_hmag**2 + f_e_kmag**2)
+    data['B-V'] = MaskedColumn(data['B-V'].filled(f_bmag - f_vmag))
+    data['e_B-V'] = MaskedColumn(data['e_B-V'].filled(np.sqrt(f_e_bmag**2 + f_e_vmag**2)))
+    data['V-I'] = MaskedColumn(data['V-I'].filled(f_vmag - imag))
+    data['e_V-I'] = MaskedColumn(data['e_V-I'].filled(np.sqrt(f_e_vmag**2 + e_imag**2)))
+    data['V-K'] = MaskedColumn(f_vmag - f_kmag)
+    data['e_V-K'] = MaskedColumn(np.sqrt(f_e_vmag**2 + f_e_kmag**2))
+    data['J-K'] = MaskedColumn(f_jmag - f_kmag)
+    data['e_J-K'] = MaskedColumn(np.sqrt(f_e_jmag**2 + f_e_kmag**2))
+    data['H-K'] = MaskedColumn(f_hmag - f_kmag)
+    data['e_H-K'] = MaskedColumn(np.sqrt(f_e_hmag**2 + f_e_kmag**2))
 
     data['B-V'].mask = np.logical_or(data['B-V'].mask, np.isnan(data['B-V']))
     data['e_B-V'].mask = np.logical_or(data['e_B-V'].mask, np.isnan(data['e_B-V']))

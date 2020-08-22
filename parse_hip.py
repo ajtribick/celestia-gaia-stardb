@@ -197,7 +197,7 @@ def process_hip():
 
     data = join(data, load_sao(), keys=['HIP'], join_type='left')
 
-    data['dist_use'] = data['r_est_gaia'].filled(data['r_est_xhip'].filled(np.nan))
+    data['dist_use'] = data['r_est_gaia'].filled(data['r_est_xhip'])
     data['ra'] = data['ra_gaia'].filled(data['ra_xhip'])
     data['dec'] = data['dec_gaia'].filled(data['dec_xhip'])
 
