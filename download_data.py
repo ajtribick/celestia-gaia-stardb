@@ -21,13 +21,17 @@
 
 import contextlib
 import getpass
+import gzip
 import os
+import tarfile
 
 from zipfile import ZipFile
 
 import requests
+import astropy.io.ascii as io_ascii
 
-from astropy import io, units
+from astropy import units
+from astropy.table import join, unique
 from astroquery.gaia import Gaia
 from astroquery.xmatch import XMatch
 
@@ -74,9 +78,6 @@ def download_file(outfile_name, url):
 
 def download_gaia_data(colname, xindex_table, outfile_name):
     """Query and download Gaia data."""
-    if not proceed_checkfile(outfile_name):
-        return
-
     query = """SELECT
     x.source_id, x.original_ext_source_id AS """ + colname + """,
     g.ra, g.dec, g.parallax, g.parallax_error, g.pmra,
@@ -97,6 +98,54 @@ FROM
     finally:
         Gaia.remove_jobs(job.jobid)
 
+CONESEARCH_URL = \
+    'https://www.cosmos.esa.int/documents/29201/1769576/Hipparcos2GaiaDR2coneSearch.zip'
+
+def download_gaia_hip(username):
+    """Download HIP data from the Gaia archive."""
+    hip_file = os.path.join('gaia', 'gaiadr2_hip-result.csv')
+    if not proceed_checkfile(hip_file):
+        return
+
+    conesearch_file = os.path.join('gaia', 'hip2conesearch.zip')
+    if proceed_checkfile(conesearch_file):
+        download_file(conesearch_file, CONESEARCH_URL)
+
+    # the gaiadr2.hipparcos2_best_neighbour table misses a large number of HIP stars that are
+    # actually present, so use the mapping from Kervella et al. (2019) "Binarity of Hipparcos
+    # stars from Gaia pm anomaly" instead.
+    with tarfile.open(os.path.join('vizier', 'hipgpma.tar.gz'), 'r:gz') as tf:
+        with tf.extractfile('./ReadMe') as readme:
+            reader = io_ascii.get_reader(io_ascii.Cds,
+                                            readme=readme,
+                                            include_names=['HIP', 'GDR2'])
+            reader.data.table_name = 'hipgpma.dat'
+            with tf.extractfile('./hipgpma.dat.gz') as gzf, gzip.open(gzf, 'rb') as f:
+                hip_map = reader.read(f)
+
+    hip_map = unique(hip_map)
+
+    with ZipFile(conesearch_file, 'r') as csz:
+        with csz.open('Hipparcos2GaiaDR2coneSearch.csv', 'r') as f:
+            cone_map = io_ascii.read(f,
+                                     format='csv',
+                                     names=['HIP', 'GDR2', 'dist'],
+                                     include_names=['HIP', 'GDR2'])
+
+    cone_map = unique(cone_map)
+
+    hip_map = join(hip_map, cone_map, join_type='outer', keys='HIP', table_names=['pm', 'cone'])
+    hip_map['GDR2'] = hip_map['GDR2_pm'].filled(hip_map['GDR2_cone'])
+    hip_map.remove_columns(['GDR2_pm', 'GDR2_cone'])
+    hip_map.rename_column('HIP', 'original_ext_source_id')
+    hip_map.rename_column('GDR2', 'source_id')
+
+    Gaia.upload_table(upload_resource=hip_map, table_name='hipgpma')
+    try:
+        download_gaia_data('hip_id', 'user_'+username+'.hipgpma', hip_file)
+    finally:
+        Gaia.delete_user_table('hipgpma')
+
 def download_gaia():
     """Download data from the Gaia archive."""
     with contextlib.suppress(FileExistsError):
@@ -114,28 +163,13 @@ def download_gaia():
 
     Gaia.login(user=username, password=password)
     try:
-        # the gaiadr2.hipparcos2_best_neighbour table misses a large number of HIP stars that are
-        # actually present, so use the cone search file
-        conesearch_file = os.path.join('gaia', 'hip2conesearch.zip')
-        download_file(
-            conesearch_file,
-            'https://www.cosmos.esa.int/documents/29201/1769576/Hipparcos2GaiaDR2coneSearch.zip')
+        download_gaia_hip(username)
 
-        with ZipFile(conesearch_file, 'r') as csz:
-            with csz.open('Hipparcos2GaiaDR2coneSearch.csv', 'r') as f:
-                hip_map = io.ascii.read(f, names=['original_ext_source_id', 'source_id', 'dist'])
+        # download TYC data
 
-        gaia_downloads = [
-            ('hip_id', 'user_'+username+'.hip_cone', 'gaiadr2_hip-result.csv'),
-            ('tyc2_id', 'gaiadr2.tycho2_best_neighbour', 'gaiadr2_tyc-result.csv')
-        ]
-
-        Gaia.upload_table(upload_resource=hip_map, table_name='hip_cone')
-        try:
-            for colname, xindex_table, filename in gaia_downloads:
-                download_gaia_data(colname, xindex_table, os.path.join('gaia', filename))
-        finally:
-            Gaia.delete_user_table('hip_cone')
+        tyc_file = os.path.join('gaia', 'gaiadr2_tyc-result.csv')
+        if proceed_checkfile(tyc_file):
+            download_gaia_data('tyc2_id', 'gaiadr2.tycho2_best_neighbour', tyc_file)
 
     finally:
         Gaia.logout()
@@ -151,7 +185,7 @@ def download_xmatch(cat1, cat2, outfile_name):
                           cat2=cat2,
                           max_distance=5 * units.arcsec)
 
-    io.ascii.write(result, outfile_name, format='csv')
+    io_ascii.write(result, outfile_name, format='csv')
 
 def download_sao_xmatch():
     """Download cross-matches to the SAO catalogue."""
@@ -178,12 +212,14 @@ def download_vizier():
         ('tyc2spec.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?III/231'),
         ('tyc2teff.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?V/136'),
         ('ubvriteff.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?J/ApJS/193/1'),
-        ('xhip.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?V/137D')]
+        ('xhip.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?V/137D'),
+        ('hipgpma.tar.gz', 'https://cdsarc.unistra.fr/viz-bin/nph-Cat/tar.gz?J/A+A/623/A72'),
+    ]
 
     for file_name, url in files_urls:
         download_file(os.path.join('vizier', file_name), url)
 
 if __name__ == "__main__":
-    download_gaia()
     download_vizier()
+    download_gaia()
     download_sao_xmatch()

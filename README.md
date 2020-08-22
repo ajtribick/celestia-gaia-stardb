@@ -80,6 +80,12 @@ steps below **before** you begin.
   Bailer-Jones et al. (2018), AJ 156(2), id.58 "Estimating Distance from
   Parallaxes. IV. Distances to 1.33 Billion Stars in *Gaia* Data Release 2"
 
+- Binarity of Hipparcos stars from Gaia pm anomaly
+  (https://cdsarc.unistra.fr/viz-bin/cat/J/A%2bA/623/A72)
+
+  Kervella et al. (2019), A&A 623, id.A72 "Stellar and substellar companions
+  of nearby stars from Gaia DR2. Binarity from proper motion anomaly"
+
 - Extended Hipparcos Compilation (XHIP)
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/V/137D)
 
@@ -145,6 +151,17 @@ steps below **before** you begin.
   Distances from Parallaxes. III. Distances of Two Million Stars in the
   *Gaia* DR1 Catalogue"
 
+- Oliphant (2006), USA: Trelgol Publishing "A guide to NumPy"
+
+- van der Walt et al. (2011), Computing in Science & Engineering, 13, 22–30
+  "The NumPy Array: A Structure for Efficient Numerical Computation"
+
+- Astropy Collaboration et al. (2013), A&A 558, id.A33 "Astropy: A community
+  Python package for astronomy"
+
+- Astropy Collaboration et al. (2018), AJ 156(3), id.123 "The Astropy Project:
+  Building an Open-science Project and Status of the v2.0 Core Package"
+
 ## Acknowledgements
 
 This work has made use of data from the European Space Agency (ESA) mission
@@ -154,4 +171,11 @@ https://www.cosmos.esa.int/web/gaia/dpac/consortium). Funding for the DPAC has
 been provided by national institutions, in particular the institutions
 participating in the *Gaia* Multilateral Agreement.
 
+This work has made use of the VizieR catalogue access tool, CDS, Strasbourg,
+France (DOI : 10.26093/cds/vizier). The original description of the VizieR
+service was published in 2000, A&AS 143, 23.
+
 This work made use of the cross-match service provided by CDS, Strasbourg.
+
+This work made use of [Astropy](http://www.astropy.org), a community-developed
+core Python package for Astronomy.
