@@ -269,9 +269,10 @@ def write_starsdat(data, outfile):
     with open(outfile, 'wb') as f:
         f.write(struct.pack('<8sHL', b'CELSTARS', 0x0100, len(data)))
         print(f'  Writing {len(data)} records')
+        s = struct.Struct('<L3fhH')
         for hip, x, y, z, vmag_abs, celspec in zip(data['HIP'], data['x'], data['y'], data['z'],
                                                    data['Vmag_abs'], data['CelSpec']):
-            f.write(struct.pack('<L3fhH', hip, x, y, z, int(round(vmag_abs*256)), celspec))
+            f.write(s.pack(hip, x, y, z, int(round(vmag_abs*256)), celspec))
 
 def write_xindex(data, field, outfile):
     """Write a cross-index file."""
@@ -283,8 +284,9 @@ def write_xindex(data, field, outfile):
     print(f'  Writing {len(data)} records')
     with open(outfile, 'wb') as f:
         f.write(struct.pack('<8sH', b'CELINDEX', 0x0100))
+        s = struct.Struct('<2L')
         for hip, cat in zip(data['HIP'], data[field]):
-            f.write(struct.pack('<2L', cat, hip))
+            f.write(s.pack(cat, hip))
 
 def make_stardb():
     """Make the Celestia star database files."""
