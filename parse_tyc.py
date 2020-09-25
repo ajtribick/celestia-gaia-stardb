@@ -22,26 +22,31 @@ import os
 import re
 import tarfile
 
+from tarfile import TarFile, TarInfo
+from typing import Tuple
+
 import numpy as np
 import astropy.io.ascii as io_ascii
 import astropy.units as u
 
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-def parse_tyc_string(data, src_column, dest_column='TYC'):
+def parse_tyc_string(data: Table, src_column: str, dest_column: str='TYC') -> None:
     """Parse a TYC string into a synthetic HIP identifier."""
     tycs = np.array(np.char.split(data[src_column], '-').tolist()).astype(np.int64)
     data[dest_column] = tycs[:, 0] + tycs[:, 1]*10000 + tycs[:, 2]*1000000000
     data.remove_column(src_column)
 
-def parse_tyc_cols(data, src_columns=('TYC1', 'TYC2', 'TYC3'), dest_column='TYC'):
+def parse_tyc_cols(data: Table,
+                   src_columns: Tuple[str, str, str]=('TYC1', 'TYC2', 'TYC3'),
+                   dest_column: str='TYC') -> None:
     """Convert TYC identifier components into a synthetic HIP identifier."""
     data[dest_column] = (data[src_columns[0]]
                          + data[src_columns[1]]*10000
                          + data[src_columns[2]]*1000000000)
     data.remove_columns(src_columns)
 
-def load_gaia_tyc():
+def load_gaia_tyc() -> Table:
     """Load the Gaia DR2 TYC2 sources."""
     print('Loading Gaia DR2 sources for TYC2')
     col_names = ['source_id', 'tyc2_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp',
@@ -64,7 +69,7 @@ def load_gaia_tyc():
 
     return gaia
 
-def load_tyc_spec():
+def load_tyc_spec() -> Table:
     """Load the TYC2 spectral type catalogue."""
     print('Loading TYC2 spectral types')
     with tarfile.open(os.path.join('vizier', 'tyc2spec.tar.gz')) as tf:
@@ -81,9 +86,9 @@ def load_tyc_spec():
     data.add_index('TYC')
     return data
 
-def load_ascc():
+def load_ascc() -> Table:
     """Load ASCC from VizieR archive."""
-    def load_section(tf, info):
+    def load_section(tf: TarFile, info: TarInfo) -> Table:
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['Bmag', 'Vmag', 'e_Bmag', 'e_Vmag', 'd3', 'TYC1', 'TYC2', 'TYC3', 'HD',
                          'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag']
@@ -107,7 +112,7 @@ def load_ascc():
 
         return section
 
-    def is_data(info):
+    def is_data(info: TarInfo) -> bool:
         sections = os.path.split(info.name)
         return (len(sections) == 2 and
                 sections[0] == '.' and
@@ -129,7 +134,7 @@ def load_ascc():
     data.add_index('TYC')
     return data
 
-def load_tyc_teff():
+def load_tyc_teff() -> Table:
     """Load the Tycho-2 effective temperatures."""
     print('Loading TYC2 effective temperatures')
     with tarfile.open(os.path.join('vizier', 'tyc2teff.tar.gz'), 'r:gz') as tf:
@@ -195,7 +200,7 @@ def load_tyc_teff():
         data.add_index('TYC')
         return unique(data, keys=['TYC'])
 
-def load_sao():
+def load_sao() -> Table:
     """Load the SAO-TYC2 cross match."""
     print('Loading SAO-TYC2 cross match')
     data = io_ascii.read(os.path.join('xmatch', 'sao_tyc2_xmatch.csv'),
@@ -213,7 +218,7 @@ def load_sao():
     data.add_index('TYC')
     return data
 
-def merge_tables():
+def merge_tables() -> Table:
     """Merges the tables."""
     data = join(load_gaia_tyc(), load_tyc_spec(), keys=['TYC'], join_type='left')
     data = join(data, load_ascc(), keys=['TYC'], join_type='left', metadata_conflicts='silent')
@@ -232,7 +237,7 @@ def merge_tables():
     data = join(data, load_sao(), keys=['TYC'], join_type='left')
     return data
 
-def process_tyc():
+def process_tyc() -> Table:
     """Processes the TYC data."""
     data = merge_tables()
     data.rename_column('r_est', 'dist_use')

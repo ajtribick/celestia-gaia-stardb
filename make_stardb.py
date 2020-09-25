@@ -30,7 +30,7 @@ import numpy as np
 import astropy.io.ascii as io_ascii
 import astropy.units as u
 
-from astropy.table import MaskedColumn, join, unique, vstack
+from astropy.table import MaskedColumn, Table, join, unique, vstack
 from astropy.units import UnitsWarning
 
 from parse_hip import process_hip
@@ -60,7 +60,7 @@ TEFF_BINS = (TEFF_SPEC[:-1] + TEFF_SPEC[1:]) // 2
 
 CEL_SPECS = parse_spectrum_vec(['OBAFGKM'[i//10]+str(i%10) for i in range(3, 70)])
 
-def load_ubvri():
+def load_ubvri() -> Table:
     """Load UBVRI Teff calibration from VizieR archive."""
     print('Loading UBVRI calibration')
     with tarfile.open(os.path.join('vizier', 'ubvriteff.tar.gz'), 'r:gz') as tf:
@@ -76,7 +76,7 @@ def load_ubvri():
                     warnings.simplefilter('ignore', UnitsWarning)
                     return reader.read(f)
 
-def parse_spectra(data):
+def parse_spectra(data: Table) -> Table:
     """Parse the spectral types into the celestia.Sci format."""
     print('Parsing spectral types')
     data['SpType'] = data['SpType'].filled('')
@@ -84,7 +84,7 @@ def parse_spectra(data):
     sptypes['CelSpec'] = parse_spectrum_vec(sptypes['SpType'])
     return join(data, sptypes)
 
-def estimate_magnitudes(data):
+def estimate_magnitudes(data: Table) -> None:
     """Estimates magnitudes and color indices from G magnitude and BP-RP.
 
     Formula used is from Evans et al. (2018) "Gaia Data Release 2: Photometric
@@ -146,7 +146,7 @@ def estimate_magnitudes(data):
     data.remove_columns(['Bmag', 'e_Bmag', 'e_Vmag', 'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag',
                          'Kmag', 'e_Kmag'])
 
-def estimate_temperatures(data):
+def estimate_temperatures(data: Table) -> None:
     """Estimate the temperature of stars."""
     ubvri_data = load_ubvri()
     print('Estimating temperatures from color indices')
@@ -177,7 +177,7 @@ def estimate_temperatures(data):
     data['teff_est'] = teffs / weights
     data['teff_est'].unit = u.K
 
-def estimate_spectra(data):
+def estimate_spectra(data: Table) -> Table:
     """Estimate the spectral type of stars."""
     no_teff = data[data['teff_val'].mask]
     # temporarily disable no-member error in pylint, as it cannot see the reduce method
@@ -199,7 +199,7 @@ def estimate_spectra(data):
     data['CelSpec'] = CEL_SPECS[np.digitize(data['teff_val'], TEFF_BINS)]
     return data
 
-def merge_all():
+def merge_all() -> Table:
     """Merges the HIP and TYC data."""
     hip_data = process_hip()
     tyc_data = join(process_tyc(),
@@ -218,7 +218,7 @@ ROT_MATRIX = np.array([[1, 0, 0],
                        [0, COS_OBLIQUITY, SIN_OBLIQUITY],
                        [0, -SIN_OBLIQUITY, COS_OBLIQUITY]])
 
-def process_data():
+def process_data() -> Table:
     """Processes the missing data values."""
     data = merge_all()
     data = data[np.logical_not(data['dist_use'].mask)]
@@ -263,7 +263,7 @@ def process_data():
 
     return data
 
-def write_starsdat(data, outfile):
+def write_starsdat(data: Table, outfile: str) -> None:
     """Write the stars.dat file."""
     print('Writing stars.dat')
     with open(outfile, 'wb') as f:
@@ -274,7 +274,7 @@ def write_starsdat(data, outfile):
                                                    data['Vmag_abs'], data['CelSpec']):
             f.write(fmt.pack(hip, x, y, z, int(round(vmag_abs*256)), celspec))
 
-def write_xindex(data, field, outfile):
+def write_xindex(data: Table, field: str, outfile: str) -> None:
     """Write a cross-index file."""
     print('Writing '+field+' cross-index')
     print('  Extracting cross-index data')
@@ -288,7 +288,7 @@ def write_xindex(data, field, outfile):
         for hip, cat in zip(data['HIP'], data[field]):
             f.write(fmt.pack(cat, hip))
 
-def make_stardb():
+def make_stardb() -> None:
     """Make the Celestia star database files."""
     data = process_data()
 

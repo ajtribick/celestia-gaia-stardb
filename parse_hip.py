@@ -27,11 +27,11 @@ import astropy.io.ascii as io_ascii
 import astropy.units as u
 
 from astropy.coordinates import ICRS, SkyCoord
-from astropy.table import join, unique
+from astropy.table import Table, join, unique
 from astropy.time import Time
 from astropy.units import UnitsWarning
 
-def load_gaia_hip():
+def load_gaia_hip() -> Table:
     """Load the Gaia DR2 HIP sources."""
     print('Loading Gaia DR2 sources for HIP')
     col_names = ['source_id', 'hip_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp',
@@ -50,7 +50,7 @@ def load_gaia_hip():
 
     return gaia
 
-def load_xhip():
+def load_xhip() -> Table:
     """Load the XHIP catalogue from the VizieR archive."""
     print('Loading XHIP')
     with tarfile.open(os.path.join('vizier', 'xhip.tar.gz'), 'r:gz') as tf:
@@ -107,7 +107,7 @@ def load_xhip():
 
         return join(hip_data, biblio_data, join_type='left', keys='HIP')
 
-def load_sao():
+def load_sao() -> Table:
     """Load the SAO-HIP cross match."""
     print('Loading SAO-HIP cross match')
     data = io_ascii.read(os.path.join('xmatch', 'sao_hip_xmatch.csv'),
@@ -123,7 +123,7 @@ def load_sao():
     data.add_index('HIP')
     return data
 
-def compute_distances(hip_data, length_kpc=1.35):
+def compute_distances(hip_data: Table, length_kpc: float=1.35) -> None:
     """Compute the distance using an exponentially-decreasing prior.
 
     The method is described in:
@@ -162,7 +162,7 @@ def compute_distances(hip_data, length_kpc=1.35):
 HIP_TIME = Time('J1991.25')
 GAIA_TIME = Time('J2015.5')
 
-def update_coordinates(hip_data):
+def update_coordinates(hip_data: Table) -> None:
     """Update the coordinates from J1991.25 to J2015.5 to match Gaia."""
     print('Updating coordinates to J2015.5')
     coords = SkyCoord(frame=ICRS,
@@ -179,7 +179,7 @@ def update_coordinates(hip_data):
     hip_data['dec'] = coords.dec / u.deg
     hip_data['dec'].unit = u.deg
 
-def process_xhip():
+def process_xhip() -> Table:
     """Processes the XHIP data."""
     xhip = load_xhip()
     compute_distances(xhip)
@@ -187,7 +187,7 @@ def process_xhip():
     xhip.remove_columns(['RAdeg', 'DEdeg', 'Plx', 'e_Plx', 'pmRA', 'pmDE', 'RV', 'Dist', 'e_Dist'])
     return xhip
 
-def process_hip():
+def process_hip() -> Table:
     """Process the Gaia and HIP data."""
     data = join(load_gaia_hip(),
                 process_xhip(),

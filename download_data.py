@@ -38,7 +38,7 @@ from astroquery.gaia import Gaia
 from astroquery.utils.tap import Tap
 from astroquery.xmatch import XMatch
 
-def yesno(prompt, default=False):
+def yesno(prompt: str, default: bool=False) -> bool:
     """Prompt the user for yes/no input."""
     if default:
         new_prompt = f'{prompt} (Y/n): '
@@ -54,7 +54,7 @@ def yesno(prompt, default=False):
         elif answer == 'n' or answer == 'N':
             return False
 
-def proceed_checkfile(filename):
+def proceed_checkfile(filename: str) -> bool:
     """Check if a file exists, if so prompt the user if they want to replace it."""
     if os.path.exists(filename):
         if yesno(f'{filename} already exists, replace?'):
@@ -64,7 +64,7 @@ def proceed_checkfile(filename):
             return False
     return True
 
-def download_file(outfile_name, url):
+def download_file(outfile_name: str, url: str) -> bool:
     """Download a file using requests."""
     if not proceed_checkfile(outfile_name):
         return
@@ -79,7 +79,7 @@ def download_file(outfile_name, url):
 
 # --- GAIA DATA DOWNLOAD ---
 
-def download_gaia_data(colname, xindex_table, outfile_name):
+def download_gaia_data(colname: str, xindex_table: str, outfile_name: str) -> None:
     """Query and download Gaia data."""
     query = f"""SELECT
     x.source_id, x.original_ext_source_id AS {colname},
@@ -104,7 +104,7 @@ FROM
 CONESEARCH_URL = \
     'https://www.cosmos.esa.int/documents/29201/1769576/Hipparcos2GaiaDR2coneSearch.zip'
 
-def download_gaia_hip(username):
+def download_gaia_hip(username: str) -> None:
     """Download HIP data from the Gaia archive."""
     hip_file = os.path.join('gaia', 'gaiadr2_hip-result.csv')
     if not proceed_checkfile(hip_file):
@@ -149,9 +149,9 @@ def download_gaia_hip(username):
     finally:
         Gaia.delete_user_table('hipgpma')
 
-def get_missing_tyc_ids(tyc_file, ascc_file):
+def get_missing_tyc_ids(tyc_file: str, ascc_file: str) -> Table:
     """Finds the ASCC TYC ids that are not present in Gaia cross-match."""
-    def load_tyc(filename):
+    def load_tyc(filename: str) -> Table:
         with open(filename, 'r') as f:
             header = f.readline().split(',')
             col_idx = header.index('tyc2_id')
@@ -172,7 +172,7 @@ def get_missing_tyc_ids(tyc_file, ascc_file):
             return Table([tyc1, tyc2, tyc3], names=['TYC1','TYC2','TYC3'], dtype=('i4', 'i4', 'i4'))
 
 
-    def load_ascc(filename):
+    def load_ascc(filename: str) -> Table:
         data = None
         with tarfile.open(filename, 'r:gz') as tf:
 
@@ -207,7 +207,7 @@ def get_missing_tyc_ids(tyc_file, ascc_file):
 
     return Table([[f"TYC {t['TYC1']}-{t['TYC2']}-{t['TYC3']}" for t in t_missing]], names=['id'])
 
-def download_gaia_tyc(username):
+def download_gaia_tyc(username: str) -> None:
     """Download TYC data from the Gaia archive."""
 
     tyc_file = os.path.join('gaia', 'gaiadr2_tyc-result.csv')
@@ -258,7 +258,7 @@ WHERE
         finally:
             Gaia.delete_user_table('tyc_missing')
 
-def download_gaia():
+def download_gaia() -> None:
     """Download data from the Gaia archive."""
     with contextlib.suppress(FileExistsError):
         os.mkdir('gaia')
@@ -283,7 +283,7 @@ def download_gaia():
 
 # --- SAO XMATCH DOWNLOAD ---
 
-def download_xmatch(cat1, cat2, outfile_name):
+def download_xmatch(cat1: str, cat2: str, outfile_name: str) -> None:
     """Download a cross-match from VizieR."""
     if not proceed_checkfile(outfile_name):
         return
@@ -294,7 +294,7 @@ def download_xmatch(cat1, cat2, outfile_name):
 
     io_ascii.write(result, outfile_name, format='csv')
 
-def download_sao_xmatch():
+def download_sao_xmatch() -> None:
     """Download cross-matches to the SAO catalogue."""
     with contextlib.suppress(FileExistsError):
         os.mkdir('xmatch')
@@ -305,11 +305,11 @@ def download_sao_xmatch():
     ]
 
     for cat1, cat2, filename in cross_matches:
-        print('Downloading '+cat1+'-'+cat2+' crossmatch')
+        print(f'Downloading {cat1}-{cat2} crossmatch')
         download_xmatch(cat1, cat2, os.path.join('xmatch', filename))
 
 # --- VIZIER DOWNLOAD ---
-def download_vizier():
+def download_vizier() -> None:
     """Download catalogue archive files from VizieR."""
     with contextlib.suppress(FileExistsError):
         os.mkdir('vizier')
