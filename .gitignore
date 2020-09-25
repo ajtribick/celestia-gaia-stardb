@@ -2,6 +2,7 @@
 gaia
 output/*.dat
 myenv
+simbad
 vizier
 xmatch
 *.kate-swp

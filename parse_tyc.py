@@ -46,9 +46,11 @@ def load_gaia_tyc():
     print('Loading Gaia DR2 sources for TYC2')
     col_names = ['source_id', 'tyc2_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp',
                  'teff_val', 'r_est']
-    gaia = io_ascii.read(os.path.join('gaia', 'gaiadr2_tyc-result.csv'),
-                         include_names=col_names,
-                         format='csv')
+    file_names = ['gaiadr2_tyc-result.csv', 'gaiadr2_tyc-result-extra.csv']
+    gaia = vstack([io_ascii.read(os.path.join('gaia', f),
+                                 include_names=col_names,
+                                 format='csv')
+                   for f in file_names], join_type='exact')
 
     parse_tyc_string(gaia, 'tyc2_id')
     gaia.add_index('TYC')
@@ -222,7 +224,8 @@ def merge_tables():
                 join_type='left',
                 table_names=('gaia', 'tycteff'))
 
-    data['teff_val'] = MaskedColumn(data['teff_val_gaia'].filled(data['teff_val_tycteff'].filled(np.nan)))
+    data['teff_val'] = MaskedColumn(
+        data['teff_val_gaia'].filled(data['teff_val_tycteff'].filled(np.nan)))
     data['teff_val'].mask = np.isnan(data['teff_val'])
     data.remove_columns(['teff_val_tycteff', 'teff_val_gaia'])
 
