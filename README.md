@@ -156,11 +156,21 @@ steps below **before** you begin.
 - van der Walt et al. (2011), Computing in Science & Engineering, 13, 22–30
   "The NumPy Array: A Structure for Efficient Numerical Computation"
 
+- Harris et al. (2020), Nature 585, 357–362 "Array programming with NumPy"
+
 - Astropy Collaboration et al. (2013), A&A 558, id.A33 "Astropy: A community
   Python package for astronomy"
 
 - Astropy Collaboration et al. (2018), AJ 156(3), id.123 "The Astropy Project:
   Building an Open-science Project and Status of the v2.0 Core Package"
+
+### Databases
+
+- Wenger et al. (2000), A&A 143, 9–22 "The SIMBAD astronomical database. The
+  CDS reference database for astronomical objects"
+
+- Ochsenbein et al. (2000), A&AS 143, 23–32 "The VizieR database of
+  astronomical catalogues"
 
 ## Acknowledgements
 
@@ -170,6 +180,9 @@ Processing and Analysis Consortium (DPAC,
 https://www.cosmos.esa.int/web/gaia/dpac/consortium). Funding for the DPAC has
 been provided by national institutions, in particular the institutions
 participating in the *Gaia* Multilateral Agreement.
+
+This work has made use of the SIMBAD database, operated at CDS, Strasbourg,
+France.
 
 This work has made use of the VizieR catalogue access tool, CDS, Strasbourg,
 France (DOI : 10.26093/cds/vizier). The original description of the VizieR
