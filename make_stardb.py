@@ -209,7 +209,12 @@ def merge_all() -> Table:
     tyc_data = tyc_data[tyc_data['HIP'].mask]
     tyc_data.remove_columns('HIP')
     tyc_data.rename_column('TYC', 'HIP')
-    return vstack([hip_data, tyc_data], join_type='outer', metadata_conflicts='silent')
+    data = vstack([hip_data, tyc_data], join_type='outer', metadata_conflicts='silent')
+    del hip_data
+    del tyc_data
+    gaia = data[np.logical_not(data['source_id'].mask)]
+    gaia = unique(gaia.group_by(['source_id', 'HIP']), keys=['source_id'])
+    return vstack([gaia, data[data['source_id'].mask]], join_type='exact')
 
 OBLIQUITY = np.radians(23.4392911)
 COS_OBLIQUITY = np.cos(OBLIQUITY)
