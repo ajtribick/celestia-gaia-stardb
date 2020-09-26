@@ -203,9 +203,14 @@ def load_tyc_teff() -> Table:
 def load_sao() -> Table:
     """Load the SAO-TYC2 cross match."""
     print('Loading SAO-TYC2 cross match')
-    data = io_ascii.read(os.path.join('xmatch', 'sao_tyc2_xmatch.csv'),
-                         include_names=['SAO', 'TYC1', 'TYC2', 'TYC3', 'angDist', 'delFlag'],
-                         format='csv')
+    xmatch_files = ['sao_tyc2_xmatch.csv',
+                    'sao_tyc2_suppl1_xmatch.csv',
+                    'sao_tyc2_suppl2_xmatch.csv']
+    data = vstack([io_ascii.read(os.path.join('xmatch', f),
+                                 include_names=['SAO', 'TYC1', 'TYC2', 'TYC3', 'angDist', 'delFlag'],
+                                 format='csv',
+                                 converters={'delFlag': [io_ascii.convert_numpy(np.str)]})
+                   for f in xmatch_files], join_type='exact')
 
     data = data[data['delFlag'].mask]
     data.remove_column('delFlag')
