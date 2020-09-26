@@ -109,6 +109,13 @@ steps below **before** you begin.
   Wright et al. (2003), AJ 125(1), pp.359–363 "The Tycho-2 Spectral Type
   Catalog"
 
+- New spectral types for Tycho2 stars
+  (https://cdsarc.unistra.fr/viz-bin/cat/J/PAZh/34/21)
+
+  Tsvetkov et al. (2008), Astronomy Letters 34(1), pp.17–27 "Inaccuracies in
+  the spectral classification of stars from the Tycho-2 Spectral Type
+  Catalogue"
+
 - SAO Star Catalog J2000 (http://cdsarc.u-strasbg.fr/viz-bin/cat/I/131A)
 
   SAO Staff, "Smithsonian Astrophysical Observatory Star Catalog (1990)"

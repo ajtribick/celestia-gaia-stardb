@@ -107,6 +107,23 @@ def load_xhip() -> Table:
 
         return join(hip_data, biblio_data, join_type='left', keys='HIP')
 
+def load_tyc2specnew() -> Table:
+    """Load revised spectral types."""
+    print("Loading revised TYC2 spectral types")
+    with tarfile.open(os.path.join('vizier', 'tyc2specnew.tar.gz')) as tf:
+        with tf.extractfile('./ReadMe') as readme:
+            reader = io_ascii.get_reader(io_ascii.Cds,
+                                         readme=readme,
+                                         include_names=['HIP', 'SpType1'])
+            reader.data.table_name = 'table2.dat'
+            with tf.extractfile('./table2.dat') as f:
+                # Suppress a warning because reader does not handle logarithmic units
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UnitsWarning)
+                    data = reader.read(f)
+                    return data[data['SpType1'] != '']
+
+
 def load_sao() -> Table:
     """Load the SAO-HIP cross match."""
     print('Loading SAO-HIP cross match')
@@ -182,6 +199,11 @@ def update_coordinates(hip_data: Table) -> None:
 def process_xhip() -> Table:
     """Processes the XHIP data."""
     xhip = load_xhip()
+    sptypes = load_tyc2specnew()
+    xhip = join(xhip, sptypes, keys=['HIP'], join_type='left', metadata_conflicts='silent')
+    xhip['SpType'] = xhip['SpType1'].filled(xhip['SpType'])
+    xhip.remove_column('SpType1')
+
     compute_distances(xhip)
     update_coordinates(xhip)
     xhip.remove_columns(['RAdeg', 'DEdeg', 'Plx', 'e_Plx', 'pmRA', 'pmDE', 'RV', 'Dist', 'e_Dist'])
