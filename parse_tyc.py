@@ -91,7 +91,7 @@ def load_ascc() -> Table:
     def load_section(tf: TarFile, info: TarInfo) -> Table:
         with tf.extractfile('./ReadMe') as readme:
             col_names = ['Bmag', 'Vmag', 'e_Bmag', 'e_Vmag', 'd3', 'TYC1', 'TYC2', 'TYC3', 'HD',
-                         'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag']
+                         'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag', 'SpType']
             reader = io_ascii.get_reader(io_ascii.Cds,
                                          readme=readme,
                                          include_names=col_names)
@@ -221,7 +221,14 @@ def load_sao() -> Table:
 def merge_tables() -> Table:
     """Merges the tables."""
     data = join(load_gaia_tyc(), load_tyc_spec(), keys=['TYC'], join_type='left')
-    data = join(data, load_ascc(), keys=['TYC'], join_type='left', metadata_conflicts='silent')
+    data = join(data, load_ascc(),
+                keys=['TYC'],
+                join_type='left',
+                table_names=('gaia', 'ascc'),
+                metadata_conflicts='silent')
+    data['SpType'] = MaskedColumn(data['SpType_gaia'].filled(data['SpType_ascc']))
+    data['SpType'].mask = data['SpType'] == ''
+    data.remove_columns(['SpType_gaia', 'SpType_ascc'])
     data['HD'].mask = np.logical_or(data['HD'].mask, data['HD'] == 0)
     data = join(data,
                 load_tyc_teff(),
