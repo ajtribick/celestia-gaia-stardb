@@ -231,7 +231,7 @@ def merge_tables() -> Table:
                 join_type='left',
                 table_names=('gaia', 'ascc'),
                 metadata_conflicts='silent')
-    data['SpType'] = MaskedColumn(data['SpType_gaia'].filled(data['SpType_ascc']))
+    data['SpType'] = MaskedColumn(data['SpType_gaia'].filled(data['SpType_ascc'].filled('')))
     data['SpType'].mask = data['SpType'] == ''
     data.remove_columns(['SpType_gaia', 'SpType_ascc'])
     data['HD'].mask = np.logical_or(data['HD'].mask, data['HD'] == 0)
