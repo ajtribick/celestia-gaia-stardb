@@ -7,3 +7,4 @@ vizier
 xmatch
 *.kate-swp
 *.pyc
+/celestia*.zip

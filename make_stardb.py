@@ -26,6 +26,8 @@ import struct
 import tarfile
 import warnings
 
+from zipfile import ZipFile, ZIP_DEFLATED
+
 import numpy as np
 import astropy.io.ascii as io_ascii
 import astropy.units as u
@@ -36,6 +38,8 @@ from astropy.units import UnitsWarning
 from parse_hip import process_hip
 from parse_tyc import process_tyc
 from spparse import CEL_UNKNOWN_STAR, parse_spectrum_vec
+
+VERSION = "1.0.2"
 
 # remove the following objects from the output
 
@@ -309,6 +313,13 @@ def make_stardb() -> None:
 
     for fieldname, outfile in xindices:
         write_xindex(data, fieldname, os.path.join('output', outfile))
+
+    print("Creating archive")
+    archivename = f'celestia-gaia-stardb-{VERSION}'
+    with ZipFile(f'{archivename}.zip', 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf:
+        contents = ['stars.dat', 'hdxindex.dat', 'saoxindex.dat', 'LICENSE.txt', 'CREDITS.md']
+        for f in contents:
+            zf.write(os.path.join('output', f), arcname=os.path.join(archivename, f))
 
 if __name__ == '__main__':
     make_stardb()
