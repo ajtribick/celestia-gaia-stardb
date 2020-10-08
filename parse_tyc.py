@@ -66,6 +66,9 @@ TYC_HD_ERRATA = {
         (make_tyc(9172, 791, 1), 272092),
         # VizieR annotations
         (make_tyc(7389, 1138, 1), 320669),
+        # extras
+        (make_tyc(1209, 1833, 1), 11502),
+        (make_tyc(1209, 1835, 1), 11503),
     ],
     "delete": [
         # B. Skiff (13-Nov-2007)
