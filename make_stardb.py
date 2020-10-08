@@ -22,6 +22,7 @@
 import contextlib
 import gzip
 import os
+import re
 import struct
 import tarfile
 import warnings
@@ -203,6 +204,69 @@ def estimate_spectra(data: Table) -> Table:
     data['CelSpec'] = CEL_SPECS[np.digitize(data['teff_val'], TEFF_BINS)]
     return data
 
+def load_sao() -> Table:
+    """Loads the SAO catalog."""
+    print("Loading SAO")
+
+    sao_range = None
+    hd_range = None
+
+    # due to SAO using non-standard format codes, we parse this ourselves
+    with open(os.path.join('vizier', 'sao.readme'), 'r') as f:
+        re_file = re.compile(r'sao.dat\ +[0-9]+\ +(?P<length>[0-9]+)')
+        re_table = re.compile(r'Byte-by-byte Description of file: (?P<name>\S+)$')
+        re_field = re.compile(r'''\ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+) # range
+                                  \ +\S+ # format
+                                  \ +\S+ # units
+                                  \ +(?P<label>\S+) # label''', re.X)
+        record_count = None
+        current_table = None
+        for line in f:
+            match = re_file.match(line)
+            if match:
+                record_count = int(match.group('length'))
+                continue
+            match = re_table.match(line)
+            if match:
+                current_table = match.group('name')
+                continue
+            if current_table != 'sao.dat':
+                continue
+            match = re_field.match(line)
+            if not match:
+                continue
+            if match.group('label') == 'SAO':
+                sao_range = int(match.group('start'))-1, int(match.group('end'))
+            elif match.group('label') == 'HD':
+                hd_range = int(match.group('start'))-1, int(match.group('end'))
+            if sao_range is not None and hd_range is not None:
+                break
+
+    if record_count is None:
+        raise RuntimeError("Could not get record count")
+    if sao_range is None or hd_range is None:
+        raise RuntimeError("Could not find SAO, HD fields")
+
+    with gzip.open(os.path.join('vizier', 'sao.dat.gz'), 'rt', encoding='ascii') as f:
+        saos = np.empty(record_count, dtype=np.int64)
+        hds = np.empty(record_count, dtype=np.int64)
+        record = 0
+        for line in f:
+            try:
+                sao = int(line[sao_range[0]:sao_range[1]])
+                hd = int(line[hd_range[0]:hd_range[1]])
+            except ValueError:
+                pass
+            else:
+                saos[record] = sao
+                hds[record] = hd
+                record += 1
+
+    data = Table([saos[:record], hds[:record]], names=['SAO', 'HD'])
+    data = unique(data.group_by('SAO'), keys=['HD'])
+    data = unique(data.group_by('HD'), keys=['SAO'])
+    return data
+
 def merge_all() -> Table:
     """Merges the HIP and TYC data."""
     hip_data = process_hip()
@@ -240,7 +304,26 @@ def merge_all() -> Table:
     hip_data.remove_columns('TYC')
 
     # Add the non-Gaia stars back into the dataset
-    return vstack([hip_data, non_gaia], join_type='outer')
+    hip_data = vstack([hip_data, non_gaia], join_type='outer', metadata_conflicts='silent')
+
+    # Merge SAO, preferring the values from the SAO catalogue
+    sao = load_sao()
+    sao = sao[np.isin(sao['HD'], hip_data[np.logical_not(hip_data['HD'].mask)]['HD'])]
+    hip_data['SAO'].mask = np.logical_or(hip_data['SAO'].mask,
+                                         np.isin(hip_data['SAO'], sao['SAO']))
+
+    hd_sao = join(hip_data[np.logical_not(hip_data['HD'].mask)],
+                  sao,
+                  keys=['HD'],
+                  table_names=['xref', 'sao'],
+                  join_type='left')
+    hd_sao.rename_column('SAO_xref', 'SAO')
+    hd_sao['SAO'] = MaskedColumn(hd_sao['SAO_sao'].filled(hd_sao['SAO']),
+                                 mask=np.logical_and(hd_sao['SAO'].mask,
+                                                     hd_sao['SAO_sao'].mask))
+    hd_sao.remove_column('SAO_sao')
+
+    return vstack([hip_data[hip_data['HD'].mask], hd_sao], join_type='exact')
 
 OBLIQUITY = np.radians(23.4392911)
 COS_OBLIQUITY = np.cos(OBLIQUITY)
