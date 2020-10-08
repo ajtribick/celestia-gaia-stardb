@@ -208,12 +208,8 @@ def load_tyc_hd() -> Table:
 
     parse_tyc_cols(data)
 
-    err_del = Table([TYC_HD_ERRATA['delete'] + [a[1] for a in TYC_HD_ERRATA['add']]],
-                    names=['HD'])
-    err_del['del'] = True
-    data = join(data, err_del, join_type='left')
-    data = data[data['del'].mask]
-    data.remove_column('del')
+    err_del = np.array(TYC_HD_ERRATA['delete'] + [a[1] for a in TYC_HD_ERRATA['add']])
+    data = data[np.logical_not(np.isin(data['HD'], err_del))]
 
     err_add = Table(np.array(TYC_HD_ERRATA['add']),
                     names=['TYC', 'HD'],
@@ -244,7 +240,7 @@ def load_tyc_teff() -> Table:
                                   \ +(?P<label>\S+) # label''', re.X)
             record_count = None
             current_table = None
-            for bline in readme.readlines():
+            for bline in readme:
                 line = bline.decode('ascii')
                 match = re_file.match(line)
                 if match:
@@ -280,14 +276,15 @@ def load_tyc_teff() -> Table:
                     tycsplit = line[tyc_range[0]:tyc_range[1]].split('-')
                     tyc = int(tycsplit[0]) + int(tycsplit[1])*10000 + int(tycsplit[2])*1000000000
                     teff = float(line[teff_range[0]:teff_range[1]])
+                except ValueError:
+                    pass
+                else:
                     if teff != 99999:
                         tycs[record] = tyc
                         teffs[record] = teff
                         record += 1
-                except ValueError:
-                    pass
 
-        data = Table([tycs[0:record], teffs[0:record]], names=('TYC', 'teff_val'))
+        data = Table([tycs[:record], teffs[:record]], names=('TYC', 'teff_val'))
         data['teff_val'].unit = u.K
         data.add_index('TYC')
         return unique(data, keys=['TYC'])
