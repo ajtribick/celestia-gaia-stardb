@@ -39,7 +39,7 @@ from parse_hip import process_hip
 from parse_tyc import process_tyc
 from spparse import CEL_UNKNOWN_STAR, parse_spectrum_vec
 
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 # remove the following objects from the output
 
@@ -206,19 +206,41 @@ def estimate_spectra(data: Table) -> Table:
 def merge_all() -> Table:
     """Merges the HIP and TYC data."""
     hip_data = process_hip()
-    tyc_data = join(process_tyc(),
-                    hip_data[np.logical_not(hip_data['source_id'].mask)]['source_id', 'HIP'],
+
+    # extract the non-Gaia sources to make the merging easier
+    non_gaia = hip_data[hip_data['source_id'].mask]
+
+    # merge object data for objects in both catalogues
+    hip_data = join(hip_data[np.logical_not(hip_data['source_id'].mask)],
+                    process_tyc(),
                     keys=['source_id'],
-                    join_type='left')
-    tyc_data = tyc_data[tyc_data['HIP'].mask]
-    tyc_data.remove_columns('HIP')
-    tyc_data.rename_column('TYC', 'HIP')
-    data = vstack([hip_data, tyc_data], join_type='outer', metadata_conflicts='silent')
-    del hip_data
-    del tyc_data
-    gaia = data[np.logical_not(data['source_id'].mask)]
-    gaia = unique(gaia.group_by(['source_id', 'HIP']), keys=['source_id'])
-    return vstack([gaia, data[data['source_id'].mask]], join_type='exact')
+                    table_names=['hip', 'tyc'],
+                    join_type='outer')
+
+    # Mask blank spectral type and component identifiers
+    for str_col in (c for c in hip_data.colnames if hip_data[c].dtype.kind == 'U'):
+        hip_data[str_col].mask = np.logical_or(hip_data[str_col].mask, hip_data[str_col] == '')
+
+    prefer_tyc = {'HD', 'SAO', 'Comp'}
+
+    for base_col in (c[:-4] for c in hip_data.colnames if c.endswith('_hip')):
+        hip_col = base_col + '_hip'
+        tyc_col = base_col + '_tyc'
+        hip_data.rename_column(hip_col, base_col)
+        if isinstance(hip_data[base_col], MaskedColumn):
+            mask = np.logical_and(hip_data[base_col].mask, hip_data[tyc_col].mask)
+            if base_col in prefer_tyc:
+                base_data = hip_data[tyc_col].filled(hip_data[base_col])
+            else:
+                base_data = hip_data[base_col].filled(hip_data[tyc_col])
+            hip_data[base_col] = MaskedColumn(base_data, mask=mask)
+        hip_data.remove_column(tyc_col)
+
+    hip_data['HIP'] = hip_data['HIP'].filled(hip_data['TYC'])
+    hip_data.remove_columns('TYC')
+
+    # Add the non-Gaia stars back into the dataset
+    return vstack([hip_data, non_gaia], join_type='outer')
 
 OBLIQUITY = np.radians(23.4392911)
 COS_OBLIQUITY = np.cos(OBLIQUITY)

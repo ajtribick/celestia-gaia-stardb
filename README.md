@@ -97,6 +97,12 @@ steps below **before** you begin.
   Kharchenko (2001), Kinematika i Fizika Nebesnykh Tel 17(5), pp.409-423
   "All-sky compiled catalogue of 2.5 million stars"
 
+- HD identifications for Tycho-2 stars
+  (https://cdsarc.unistra.fr/viz-bin/cat/IV/25)
+
+  Fabricius et al. (2002), A&A 386, pp.709–710 "Henry Draper catalogue
+  identifications for Tycho-2 stars"
+
 - Teff and metallicities for Tycho-2 stars
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/V/136)
 
