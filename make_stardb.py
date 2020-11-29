@@ -158,26 +158,31 @@ def estimate_temperatures(data: Table) -> None:
     ubvri_data = load_ubvri()
     print('Estimating temperatures from color indices')
 
-    data_bv = data['B-V'].filled(np.nan)
-    data_vi = data['V-I'].filled(np.nan)
-    data_vk = data['V-K'].filled(np.nan)
-    data_jk = data['J-K'].filled(np.nan)
-    data_hk = data['H-K'].filled(np.nan)
-
-    data_e_bv = np.maximum(data['e_B-V'].filled(np.nan), 0.001)
-    data_e_vi = np.maximum(data['e_V-I'].filled(np.nan), 0.001)
-    data_e_vk = np.maximum(data['e_V-K'].filled(np.nan), 0.001)
-    data_e_jk = np.maximum(data['e_J-K'].filled(np.nan), 0.001)
-    data_e_hk = np.maximum(data['e_H-K'].filled(np.nan), 0.001)
+    indices = Table(
+        [
+            data['B-V'].filled(np.nan),
+            data['V-I'].filled(np.nan),
+            data['V-K'].filled(np.nan),
+            data['J-K'].filled(np.nan),
+            data['H-K'].filled(np.nan),
+            np.maximum(data['e_B-V'].filled(np.nan), 0.001),
+            np.maximum(data['e_V-I'].filled(np.nan), 0.001),
+            np.maximum(data['e_V-K'].filled(np.nan), 0.001),
+            np.maximum(data['e_J-K'].filled(np.nan), 0.001),
+            np.maximum(data['e_H-K'].filled(np.nan), 0.001),
+        ],
+        names=['B-V','V-I','V-K','J-K','H-K',
+               'e_B-V','e_V-I','e_V-K','e_J-K','e_H-K'])
 
     weights = np.full_like(data['HIP'], 0, dtype=np.float64)
     teffs = np.full_like(data['HIP'], 0, dtype=np.float64)
     for row in ubvri_data:
-        sumsq = np.maximum(np.nan_to_num(((data_bv-row['B-V'])/data_e_bv)**2)
-                           + np.nan_to_num(((data_vk-row['V-K'])/data_e_vk)**2)
-                           + np.nan_to_num(((data_jk-row['J-K'])/data_e_jk)**2)
-                           + np.nan_to_num(((data_vi-row['V-I'])/data_e_vi)**2)
-                           + np.nan_to_num(((data_hk-row['H-K'])/data_e_hk)**2), 0.001)
+        sumsq = np.maximum(
+            np.nan_to_num(((indices['B-V']-row['B-V'])/indices['e_B-V'])**2)
+            + np.nan_to_num(((indices['V-K']-row['V-K'])/indices['e_V-K'])**2)
+            + np.nan_to_num(((indices['J-K']-row['J-K'])/indices['e_J-K'])**2)
+            + np.nan_to_num(((indices['V-I']-row['V-I'])/indices['e_V-I'])**2)
+            + np.nan_to_num(((indices['H-K']-row['H-K'])/indices['e_H-K'])**2), 0.001)
         teffs += row['Teff'] / sumsq
         weights += 1.0 / sumsq
 

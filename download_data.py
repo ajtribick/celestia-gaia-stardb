@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # gaia-stardb: Processing Gaia DR2 for celestia.Sci/Celestia
-# Copyright (C) 2019  Andrew Tribick
+# Copyright (C) 2019–2020  Andrew Tribick
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -49,9 +49,9 @@ def yesno(prompt: str, default: bool=False) -> bool:
         answer = input(new_prompt)
         if answer == '':
             return default
-        elif answer == 'y' or answer == 'Y':
+        if answer in ('y', 'Y'):
             return True
-        elif answer == 'n' or answer == 'N':
+        if answer in ('n', 'N'):
             return False
 
 def proceed_checkfile(filename: str) -> bool:
