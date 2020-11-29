@@ -35,7 +35,7 @@ def load_gaia_hip() -> Table:
     """Load the Gaia DR2 HIP sources."""
     print('Loading Gaia DR2 sources for HIP')
     col_names = ['source_id', 'hip_id', 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp',
-                 'teff_val', 'r_est']
+                 'teff_val', 'parallax', 'parallax_error', 'r_est']
     gaia = io_ascii.read(os.path.join('gaia', 'gaiadr2_hip-result.csv'),
                          include_names=col_names,
                          format='csv')
@@ -206,7 +206,7 @@ def process_xhip() -> Table:
 
     compute_distances(xhip)
     update_coordinates(xhip)
-    xhip.remove_columns(['RAdeg', 'DEdeg', 'Plx', 'e_Plx', 'pmRA', 'pmDE', 'RV', 'Dist', 'e_Dist'])
+    xhip.remove_columns(['RAdeg', 'DEdeg', 'pmRA', 'pmDE', 'RV', 'Dist', 'e_Dist'])
     return xhip
 
 def process_hip() -> Table:
@@ -219,10 +219,26 @@ def process_hip() -> Table:
 
     data = join(data, load_sao(), keys=['HIP'], join_type='left')
 
-    data['dist_use'] = data['r_est_gaia'].filled(data['r_est_xhip'])
+    data['r_gaia_score'] = np.where(data['r_est_gaia'].mask,
+                                    -20000.0,
+                                    np.where(data['parallax'] < 0,
+                                             -10000.0,
+                                             data['parallax'] / data['parallax_error']))
+
+    data['r_xhip_score'] = np.where(data['Plx'] < 0,
+                                    -10000.0,
+                                    data['Plx'] / data['e_Plx'])
+
+    data['dist_use'] = np.where(data['r_gaia_score'] >= data['r_xhip_score'],
+                                data['r_est_gaia'],
+                                data['r_est_xhip'])
+    data['dist_use'].unit = u.pc
+
     data['ra'] = data['ra_gaia'].filled(data['ra_xhip'])
     data['dec'] = data['dec_gaia'].filled(data['dec_xhip'])
 
-    data.remove_columns(['ra_gaia', 'dec_gaia', 'r_est_gaia', 'ra_xhip', 'dec_xhip', 'r_est_xhip'])
+    data.remove_columns(['ra_gaia', 'dec_gaia', 'r_est_gaia', 'ra_xhip', 'dec_xhip', 'r_est_xhip',
+                         'parallax', 'parallax_error', 'Plx', 'e_Plx',
+                         'r_gaia_score', 'r_xhip_score'])
 
     return data
