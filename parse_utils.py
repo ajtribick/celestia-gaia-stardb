@@ -105,7 +105,7 @@ class WorkaroundCDSReader:
     def __init__(self, table: str, labels: List[str], dtypes: List[np.dtype], readme: IO):
         self.labels = labels
         self.dtypes = dtypes
-        self.record_count, self.ranges = WorkaroundCDSReader._get_fields(table, labels, readme)
+        self.record_count, self.ranges = self._get_fields(table, labels, readme)
 
     def read(self, file: TextIO) -> Table:
         """Reads the input file according to the field specifications."""
@@ -130,9 +130,9 @@ class WorkaroundCDSReader:
                 return False
         return True
 
-    @staticmethod
-    def _get_fields(
-            table: str, labels: List[str], readme: IO) -> Tuple[int, Dict[str, Tuple[int, int]]]:
+    @classmethod
+    def _get_fields(cls, table: str, labels: List[str], readme: IO) \
+            -> Tuple[int, Dict[str, Tuple[int, int]]]:
         ranges = {}
 
         re_file = re.compile(re.escape(table) + r'\ +[0-9]+\ +(?P<length>[0-9]+)')
