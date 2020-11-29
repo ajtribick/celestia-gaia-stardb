@@ -38,7 +38,7 @@ from astropy.units import UnitsWarning
 
 from parse_hip import process_hip
 from parse_tyc import process_tyc
-from spparse import CEL_UNKNOWN_STAR, parse_spectrum_vec
+from spparse import CEL_UNKNOWN_STAR, parse_spectrum
 
 VERSION = "1.0.3"
 
@@ -62,6 +62,8 @@ TEFF_SPEC = np.array([
     3850, 3720, 3580, 3470, 3370, 3240, 3050, 2940, 2640, 2000])
 
 TEFF_BINS = (TEFF_SPEC[:-1] + TEFF_SPEC[1:]) // 2
+
+parse_spectrum_vec = np.vectorize(parse_spectrum, otypes=[np.uint16]) # pylint: disable=invalid-name
 
 CEL_SPECS = parse_spectrum_vec(['OBAFGKM'[i//10]+str(i%10) for i in range(3, 70)])
 

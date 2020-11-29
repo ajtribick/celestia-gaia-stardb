@@ -21,8 +21,6 @@ import re
 
 from enum import IntEnum
 
-import numpy as np
-
 from arpeggio import (NoMatch, OneOrMore, Optional, ParserPython, PTNodeVisitor, RegExMatch,
                       ZeroOrMore, visit_parse_tree)
 
@@ -420,5 +418,3 @@ def parse_spectrum(sptype: str) -> int:
         return CEL_UNKNOWN_STAR
 
     return sum(visit_parse_tree(parse_tree, VISITOR))
-
-parse_spectrum_vec = np.vectorize(parse_spectrum, otypes=[np.uint16]) # pylint: disable=invalid-name
