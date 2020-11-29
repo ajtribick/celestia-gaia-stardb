@@ -131,7 +131,8 @@ class WorkaroundCDSReader:
         return True
 
     @staticmethod
-    def _get_fields(table: str, labels: List[str], readme: IO) -> Dict[str, Tuple[int, int]]:
+    def _get_fields(
+            table: str, labels: List[str], readme: IO) -> Tuple[int, Dict[str, Tuple[int, int]]]:
         ranges = {}
 
         re_file = re.compile(re.escape(table) + r'\ +[0-9]+\ +(?P<length>[0-9]+)')
