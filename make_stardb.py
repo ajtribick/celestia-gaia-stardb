@@ -36,7 +36,7 @@ from parse_tyc import process_tyc
 from parse_utils import WorkaroundCDSReader, open_cds_tarfile
 from spparse import CEL_UNKNOWN_STAR, parse_spectrum
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 
 # remove the following objects from the output
 
