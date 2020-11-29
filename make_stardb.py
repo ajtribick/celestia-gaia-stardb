@@ -22,22 +22,18 @@
 import contextlib
 import gzip
 import os
-import re
 import struct
-import tarfile
-import warnings
 
 from zipfile import ZipFile, ZIP_DEFLATED
 
 import numpy as np
-import astropy.io.ascii as io_ascii
 import astropy.units as u
 
 from astropy.table import MaskedColumn, Table, join, unique, vstack
-from astropy.units import UnitsWarning
 
 from parse_hip import process_hip
 from parse_tyc import process_tyc
+from parse_utils import WorkaroundCDSReader, open_cds_tarfile
 from spparse import CEL_UNKNOWN_STAR, parse_spectrum
 
 VERSION = "1.0.3"
@@ -70,18 +66,8 @@ CEL_SPECS = parse_spectrum_vec(['OBAFGKM'[i//10]+str(i%10) for i in range(3, 70)
 def load_ubvri() -> Table:
     """Load UBVRI Teff calibration from VizieR archive."""
     print('Loading UBVRI calibration')
-    with tarfile.open(os.path.join('vizier', 'ubvriteff.tar.gz'), 'r:gz') as tf:
-        with tf.extractfile('./ReadMe') as readme:
-            col_names = ['V-K', 'B-V', 'V-I', 'J-K', 'H-K', 'Teff']
-            reader = io_ascii.get_reader(io_ascii.Cds,
-                                         readme=readme,
-                                         include_names=col_names)
-            reader.data.table_name = 'table3.dat'
-            with tf.extractfile('./table3.dat.gz') as gzf, gzip.open(gzf, 'rb') as f:
-                # Suppress a warning generated because the reader does not handle logarithmic units
-                with warnings.catch_warnings():
-                    warnings.simplefilter('ignore', UnitsWarning)
-                    return reader.read(f)
+    with open_cds_tarfile(os.path.join('vizier', 'ubvriteff.tar.gz')) as tf:
+        return tf.read_gzip('table3.dat', ['V-K', 'B-V', 'V-I', 'J-K', 'H-K', 'Teff'])
 
 def parse_spectra(data: Table) -> Table:
     """Parse the spectral types into the celestia.Sci format."""
@@ -103,10 +89,8 @@ def estimate_magnitudes(data: Table) -> None:
     bp_rp2 = bp_rp**2
 
     data['Vmag'] = MaskedColumn(
-        data['Vmag'].filled(data['phot_g_mean_mag'].filled(np.nan)
-                            + 0.01760
-                            + bp_rp*0.006860
-                            + bp_rp2*0.1732))
+        data['Vmag'].filled(
+            data['phot_g_mean_mag'].filled(np.nan) + 0.01760 + bp_rp*0.006860 + bp_rp2*0.1732))
     data['e_Vmag'] = MaskedColumn(data['e_Vmag'].filled(0.045858))
     data['Vmag'].mask = np.isnan(data['Vmag'])
     data['e_Vmag'].mask = data['Vmag'].mask
@@ -215,61 +199,12 @@ def load_sao() -> Table:
     """Loads the SAO catalog."""
     print("Loading SAO")
 
-    sao_range = None
-    hd_range = None
-
-    # due to SAO using non-standard format codes, we parse this ourselves
-    with open(os.path.join('vizier', 'sao.readme'), 'r') as f:
-        re_file = re.compile(r'sao.dat\ +[0-9]+\ +(?P<length>[0-9]+)')
-        re_table = re.compile(r'Byte-by-byte Description of file: (?P<name>\S+)$')
-        re_field = re.compile(r'''\ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+) # range
-                                  \ +\S+ # format
-                                  \ +\S+ # units
-                                  \ +(?P<label>\S+) # label''', re.X)
-        record_count = None
-        current_table = None
-        for line in f:
-            match = re_file.match(line)
-            if match:
-                record_count = int(match.group('length'))
-                continue
-            match = re_table.match(line)
-            if match:
-                current_table = match.group('name')
-                continue
-            if current_table != 'sao.dat':
-                continue
-            match = re_field.match(line)
-            if not match:
-                continue
-            if match.group('label') == 'SAO':
-                sao_range = int(match.group('start'))-1, int(match.group('end'))
-            elif match.group('label') == 'HD':
-                hd_range = int(match.group('start'))-1, int(match.group('end'))
-            if sao_range is not None and hd_range is not None:
-                break
-
-    if record_count is None:
-        raise RuntimeError("Could not get record count")
-    if sao_range is None or hd_range is None:
-        raise RuntimeError("Could not find SAO, HD fields")
+    with open(os.path.join('vizier', 'sao.readme'), 'r') as readme:
+        reader = WorkaroundCDSReader('sao.dat', ['SAO', 'HD'], [np.int64, np.int64], readme)
 
     with gzip.open(os.path.join('vizier', 'sao.dat.gz'), 'rt', encoding='ascii') as f:
-        saos = np.empty(record_count, dtype=np.int64)
-        hds = np.empty(record_count, dtype=np.int64)
-        record = 0
-        for line in f:
-            try:
-                sao = int(line[sao_range[0]:sao_range[1]])
-                hd = int(line[hd_range[0]:hd_range[1]])
-            except ValueError:
-                pass
-            else:
-                saos[record] = sao
-                hds[record] = hd
-                record += 1
+        data = reader.read(f)
 
-    data = Table([saos[:record], hds[:record]], names=['SAO', 'HD'])
     data = unique(data.group_by('SAO'), keys=['HD'])
     data = unique(data.group_by('HD'), keys=['SAO'])
     return data
