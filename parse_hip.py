@@ -169,11 +169,11 @@ def process_hip() -> Table:
 
     data['r_gaia_score'] = np.where(data['r_est_gaia'].mask,
                                     -20000.0,
-                                    np.where(data['parallax'] < 0,
+                                    np.where(data['parallax'] <= 0,
                                              -10000.0,
                                              data['parallax'] / data['parallax_error']))
 
-    data['r_xhip_score'] = np.where(data['Plx'] < 0,
+    data['r_xhip_score'] = np.where(data['Plx'] <= 0,
                                     -10000.0,
                                     data['Plx'] / data['e_Plx'])
 
