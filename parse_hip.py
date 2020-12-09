@@ -33,7 +33,7 @@ def load_gaia_hip() -> Table:
     """Load the Gaia DR2 HIP sources."""
     print('Loading Gaia DR2 sources for HIP')
 
-    gaia = read_gaia(os.path.join('gaia', 'gaiadr2_hip-result.csv'),
+    gaia = read_gaia(os.path.join('gaiadr2', 'gaiadr2_hip-result.csv'),
                      'hip_id',
                      extra_fields=['parallax', 'parallax_error'])
     gaia.rename_column('hip_id', 'HIP')

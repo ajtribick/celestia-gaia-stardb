@@ -137,10 +137,10 @@ class WorkaroundCDSReader:
 
         re_file = re.compile(re.escape(table) + r'\ +[0-9]+\ +(?P<length>[0-9]+)')
         re_table = re.compile(r'Byte-by-byte Description of file: (?P<name>\S+)$')
-        re_field = re.compile(r'''\ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+) # range
+        re_field = re.compile(r"""\ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+) # range
                                 \ +\S+ # format
                                 \ +\S+ # units
-                                \ +(?P<label>\S+) # label''', re.X)
+                                \ +(?P<label>\S+) # label""", re.X)
         record_count = None
         current_table = None
         for line in readme:

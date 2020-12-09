@@ -106,11 +106,11 @@ CONESEARCH_URL = \
 
 def download_gaia_hip(username: str) -> None:
     """Download HIP data from the Gaia archive."""
-    hip_file = os.path.join('gaia', 'gaiadr2_hip-result.csv')
+    hip_file = os.path.join('gaiadr2', 'gaiadr2_hip-result.csv')
     if not proceed_checkfile(hip_file):
         return
 
-    conesearch_file = os.path.join('gaia', 'hip2conesearch.zip')
+    conesearch_file = os.path.join('gaiadr2', 'hip2conesearch.zip')
     if proceed_checkfile(conesearch_file):
         download_file(conesearch_file, CONESEARCH_URL)
 
@@ -200,7 +200,7 @@ def get_missing_tyc_ids(tyc_file: str, ascc_file: str) -> Table:
 def download_gaia_tyc(username: str) -> None:
     """Download TYC data from the Gaia archive."""
 
-    tyc_file = os.path.join('gaia', 'gaiadr2_tyc-result.csv')
+    tyc_file = os.path.join('gaiadr2', 'gaiadr2_tyc-result.csv')
     if proceed_checkfile(tyc_file):
         download_gaia_data('tyc2_id', 'gaiadr2.tycho2_best_neighbour', tyc_file)
 
@@ -231,7 +231,7 @@ WHERE
                                       dump_to_file=True)
         job.save_results()
 
-    tyc2_file = os.path.join('gaia', 'gaiadr2_tyc-result-extra.csv')
+    tyc2_file = os.path.join('gaiadr2', 'gaiadr2_tyc-result-extra.csv')
     if proceed_checkfile(tyc2_file):
         missing_ids = votable.parse(simbad_file).resources[0].tables[0].to_table()
 
@@ -251,7 +251,7 @@ WHERE
 def download_gaia() -> None:
     """Download data from the Gaia archive."""
     with contextlib.suppress(FileExistsError):
-        os.mkdir('gaia')
+        os.mkdir('gaiadr2')
 
     print('Login to Gaia Archive')
     username = input('Username: ')

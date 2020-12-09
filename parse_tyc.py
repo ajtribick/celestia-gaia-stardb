@@ -113,7 +113,7 @@ def load_gaia_tyc() -> Table:
     print('Loading Gaia DR2 sources for TYC2')
 
     file_names = ['gaiadr2_tyc-result.csv', 'gaiadr2_tyc-result-extra.csv']
-    gaia = read_gaia([os.path.join('gaia', f) for f in file_names], 'tyc2_id')
+    gaia = read_gaia([os.path.join('gaiadr2', f) for f in file_names], 'tyc2_id')
 
     parse_tyc_string(gaia, 'tyc2_id')
     gaia.add_index('TYC')
