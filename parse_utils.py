@@ -20,7 +20,6 @@
 import gzip
 import re
 import tarfile
-import warnings
 
 from contextlib import contextmanager
 from tarfile import TarFile
@@ -31,7 +30,6 @@ import astropy.units as u
 import numpy as np
 
 from astropy.table import Table, vstack
-from astropy.units import UnitsWarning
 
 def read_gaia(files: Union[str, List[str]], id_name: str, *, extra_fields: List[str]=None):
     """Parse the CSV files produced by querying the Gaia TAP endpoint."""
@@ -66,7 +64,7 @@ class TarCds:
         with self.tf.extractfile('./ReadMe') as readme:
             reader = self._create_reader(readme, readme_name, names, **kwargs)
             with self.tf.extractfile(f'./{table}') as f:
-                return self._read(reader, f)
+                return reader.read(f)
 
     def read_gzip(self, table: str, names: List[str], *, readme_name=None, **kwargs) -> Table:
         """Reads a gzipped table from the CDS archive."""
@@ -75,7 +73,7 @@ class TarCds:
         with self.tf.extractfile('./ReadMe') as readme:
             reader = self._create_reader(readme, readme_name, names, **kwargs)
             with self.tf.extractfile(f'./{table}.gz') as gzf, gzip.open(gzf, 'rb') as f:
-                return self._read(reader, f)
+                return reader.read(f)
 
     @classmethod
     def _create_reader(cls, readme: IO, table: str, names: List[str], **kwargs) -> io_ascii.Cds:
@@ -85,13 +83,6 @@ class TarCds:
                                      **kwargs)
         reader.data.table_name = table
         return reader
-
-    @classmethod
-    def _read(cls, reader: io_ascii.Cds, file: IO) -> Table:
-        # Suppress a warning generated because the reader does not handle logarithmic units
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', UnitsWarning)
-            return reader.read(file)
 
 @contextmanager
 def open_cds_tarfile(file: str) -> Generator[TarCds, None, None]:
@@ -137,10 +128,10 @@ class WorkaroundCDSReader:
 
         re_file = re.compile(re.escape(table) + r'\ +[0-9]+\ +(?P<length>[0-9]+)')
         re_table = re.compile(r'Byte-by-byte Description of file: (?P<name>\S+)$')
-        re_field = re.compile(r"""\ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+) # range
-                                \ +\S+ # format
-                                \ +\S+ # units
-                                \ +(?P<label>\S+) # label""", re.X)
+        re_field = re.compile(r"""\ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+)  # range
+                                \ +\S+  # format
+                                \ +\S+  # units
+                                \ +(?P<label>\S+)  # label""", re.X)
         record_count = None
         current_table = None
         for line in readme:

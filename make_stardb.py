@@ -41,9 +41,9 @@ VERSION = "1.0.4"
 # remove the following objects from the output
 
 EXCLUSIONS = [
-    60936,  # quasar 3C 273
-    114110, # non-existent star (see HIP1 errata)
-    114176, # non-existent star (see HIP1 errata)
+    60936,   # quasar 3C 273
+    114110,  # non-existent star (see HIP1 errata)
+    114176,  # non-existent star (see HIP1 errata)
 ]
 
 # temperatures from star.cpp, spectral types O3-M9
@@ -59,7 +59,7 @@ TEFF_SPEC = np.array([
 
 TEFF_BINS = (TEFF_SPEC[:-1] + TEFF_SPEC[1:]) // 2
 
-parse_spectrum_vec = np.vectorize(parse_spectrum, otypes=[np.uint16]) # pylint: disable=invalid-name
+parse_spectrum_vec = np.vectorize(parse_spectrum, otypes=[np.uint16])  # pylint: disable=invalid-name
 
 CEL_SPECS = parse_spectrum_vec(['OBAFGKM'[i//10]+str(i%10) for i in range(3, 70)])
 

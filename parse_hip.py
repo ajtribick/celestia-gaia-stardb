@@ -18,6 +18,7 @@
 """Routines for parsing the HIP data."""
 
 import os
+import warnings
 
 import numpy as np
 import astropy.io.ascii as io_ascii
@@ -26,6 +27,7 @@ import astropy.units as u
 from astropy.coordinates import ICRS, SkyCoord
 from astropy.table import Table, join, unique
 from astropy.time import Time
+from erfa.core import ErfaWarning
 
 from parse_utils import open_cds_tarfile, read_gaia
 
@@ -56,7 +58,7 @@ def load_xhip() -> Table:
             'photo.dat',
             ['HIP', 'Vmag', 'Jmag', 'Hmag', 'Kmag', 'e_Jmag', 'e_Hmag', 'e_Kmag',
              'B-V', 'V-I', 'e_B-V', 'e_V-I'])
-        photo_data['HIP'].unit = None # for some reason it is set to parsecs in the ReadMe
+        photo_data['HIP'].unit = None  # for some reason it is set to parsecs in the ReadMe
         photo_data.add_index('HIP')
         hip_data = join(hip_data, photo_data, join_type='left', keys='HIP')
 
@@ -130,14 +132,17 @@ GAIA_TIME = Time('J2015.5')
 def update_coordinates(hip_data: Table) -> None:
     """Update the coordinates from J1991.25 to J2015.5 to match Gaia."""
     print('Updating coordinates to J2015.5')
-    coords = SkyCoord(frame=ICRS,
-                      ra=hip_data['RAdeg'],
-                      dec=hip_data['DEdeg'],
-                      pm_ra_cosdec=hip_data['pmRA'],
-                      pm_dec=hip_data['pmDE'],
-                      distance=hip_data['r_est'],
-                      radial_velocity=hip_data['RV'].filled(0),
-                      obstime=HIP_TIME).apply_space_motion(GAIA_TIME)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', ErfaWarning)
+        coords = SkyCoord(frame=ICRS,
+                        ra=hip_data['RAdeg'],
+                        dec=hip_data['DEdeg'],
+                        pm_ra_cosdec=hip_data['pmRA'],
+                        pm_dec=hip_data['pmDE'],
+                        distance=hip_data['r_est'],
+                        radial_velocity=hip_data['RV'].filled(0),
+                        obstime=HIP_TIME).apply_space_motion(GAIA_TIME)
 
     hip_data['ra'] = coords.ra / u.deg
     hip_data['ra'].unit = u.deg

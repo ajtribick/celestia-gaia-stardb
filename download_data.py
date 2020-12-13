@@ -193,7 +193,7 @@ def get_missing_tyc_ids(tyc_file: str, ascc_file: str) -> Table:
     t_mgd['in_gaia'] = t_mgd['in_gaia'].filled(False)
 
     t_missing = t_mgd[np.logical_not(t_mgd['in_gaia'])]
-    t_missing = t_missing[t_missing['TYC1'] != 0] # remove invalid entries
+    t_missing = t_missing[t_missing['TYC1'] != 0]  # remove invalid entries
 
     return Table([[f"TYC {t['TYC1']}-{t['TYC2']}-{t['TYC3']}" for t in t_missing]], names=['id'])
 

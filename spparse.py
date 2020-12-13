@@ -244,7 +244,7 @@ class SpecVisitor(PTNodeVisitor):
             lclass = CelLumClass.Ia
         elif children[0].startswith('I'):
             lclass = CelLumClass.Ib
-        elif children[0].startswith('VI'): # VII, VIII as well
+        elif children[0].startswith('VI'):  # VII, VIII as well
             lclass = CelLumClass.VI
         elif children[0].startswith('V'):
             lclass = CelLumClass.V
