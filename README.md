@@ -71,6 +71,8 @@ steps below **before** you begin.
       Release 2. Summary of the contents and survey properties"
     - Andrae et al. (2018), A&A 616, id.A8, "*Gaia* Data Release 2. First
       stellar parameters from Apsis"
+    - Evans et al. (2018), A&A 616, id.A4 "*Gaia Data Release 2. Photometric
+      content and validation"
     - Marrese et al. (2018), A&A 621, id.A144, "*Gaia* Data Release 2.
       Cross-match with external catalogues: algorithms and results"
 
