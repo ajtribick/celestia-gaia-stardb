@@ -20,9 +20,9 @@
 """Routines for downloading the data files."""
 
 import contextlib
-import getpass
 import os
 
+from typing import Union, cast
 from zipfile import ZipFile
 
 import numpy as np
@@ -79,20 +79,32 @@ def download_file(outfile_name: str, url: str) -> bool:
 
 # --- GAIA DATA DOWNLOAD ---
 
-def download_gaia_data(colname: str, xindex_table: str, outfile_name: str) -> None:
+def download_gaia_data(colname: str, xindex: Union[str, Table], outfile_name: str) -> None:
     """Query and download Gaia data."""
+
+    if isinstance(xindex, str):
+        xindex_name = cast(str, xindex)
+        upload_resource = None
+        upload_table_name = None
+    else:
+        xindex_name = "TAP_UPLOAD.cel_xindex"
+        upload_resource = cast(Table, xindex)
+        upload_table_name = 'cel_xindex'
+
     query = f"""SELECT
     x.source_id, x.original_ext_source_id AS {colname},
     g.ra, g.dec, g.parallax, g.parallax_error, g.pmra,
     g.pmdec, g.phot_g_mean_mag, g.bp_rp, g.teff_val,
     d.r_est, d.r_lo, d.r_hi
 FROM
-    {xindex_table} x
+    {xindex_name} x
     JOIN gaiadr2.gaia_source g ON g.source_id = x.source_id
     LEFT JOIN external.gaiadr2_geometric_distance d ON d.source_id = x.source_id"""
 
     print(query)
     job = Gaia.launch_job_async(query,
+                                upload_resource=upload_resource,
+                                upload_table_name=upload_table_name,
                                 dump_to_file=True,
                                 output_file=outfile_name,
                                 output_format='csv')
@@ -104,7 +116,7 @@ FROM
 CONESEARCH_URL = \
     'https://www.cosmos.esa.int/documents/29201/1769576/Hipparcos2GaiaDR2coneSearch.zip'
 
-def download_gaia_hip(username: str) -> None:
+def download_gaia_hip() -> None:
     """Download HIP data from the Gaia archive."""
     hip_file = os.path.join('gaia', 'gaiadr2_hip-result.csv')
     if not proceed_checkfile(hip_file):
@@ -136,11 +148,7 @@ def download_gaia_hip(username: str) -> None:
     hip_map.rename_column('HIP', 'original_ext_source_id')
     hip_map.rename_column('GDR2', 'source_id')
 
-    Gaia.upload_table(upload_resource=hip_map, table_name='hipgpma')
-    try:
-        download_gaia_data('hip_id', f'user_{username}.hipgpma', hip_file)
-    finally:
-        Gaia.delete_user_table('hipgpma')
+    download_gaia_data('hip_id', hip_map, hip_file)
 
 def _load_gaia_tyc_ids(filename: str) -> Table:
     with open(filename, 'r') as f:
@@ -197,7 +205,7 @@ def get_missing_tyc_ids(tyc_file: str, ascc_file: str) -> Table:
 
     return Table([[f"TYC {t['TYC1']}-{t['TYC2']}-{t['TYC3']}" for t in t_missing]], names=['id'])
 
-def download_gaia_tyc(username: str) -> None:
+def download_gaia_tyc() -> None:
     """Download TYC data from the Gaia archive."""
 
     tyc_file = os.path.join('gaia', 'gaiadr2_tyc-result.csv')
@@ -242,34 +250,15 @@ WHERE
                                   for m in missing_ids['gaia_id'].astype('U')]
         missing_ids.rename_column('gaia_id', 'source_id')
 
-        Gaia.upload_table(upload_resource=missing_ids, table_name='tyc_missing')
-        try:
-            download_gaia_data('tyc2_id', 'user_'+username+'.tyc_missing', tyc2_file)
-        finally:
-            Gaia.delete_user_table('tyc_missing')
+        download_gaia_data('tyc2_id', missing_ids, tyc2_file)
 
 def download_gaia() -> None:
     """Download data from the Gaia archive."""
     with contextlib.suppress(FileExistsError):
         os.mkdir('gaia')
 
-    print('Login to Gaia Archive')
-    username = input('Username: ')
-    if not username:
-        print('Login aborted')
-        return
-    password = getpass.getpass('Password: ')
-    if not password:
-        print('Login aborted')
-        return
-
-    Gaia.login(user=username, password=password)
-    try:
-        download_gaia_hip(username)
-        download_gaia_tyc(username)
-
-    finally:
-        Gaia.logout()
+    download_gaia_hip()
+    download_gaia_tyc()
 
 # --- SAO XMATCH DOWNLOAD ---
 

@@ -17,7 +17,6 @@ files in the release may be used under a CC-BY-SA 4.0 license
 ## Prerequisites
 
 -  Internet connection for downloading the data
--  *Gaia* archive account (https://gea.esac.esa.int/archive/)
 -  Python 3.6 or higher (preferably 64-bit, as the memory usage can be quite
    high)
 -  celestia.Sci/Celestia
@@ -46,14 +45,13 @@ steps below **before** you begin.
 
     `python -m pip install -r requirements.txt`
 
-6.  Run the download script. You will need your *Gaia* archive login.
-    **This step may take several hours!**
+6.  Run the download script. **This step may take several hours!**
 
-    python download_data.py
+    `python download_data.py`
 
 7.  Run the build script.
 
-    python make_stardb.py
+    `python make_stardb.py`
 
 8.  The stars.dat, hdxindex.dat and saoxindex.dat files will be written into
     the output folder
