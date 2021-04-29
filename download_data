@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+from celestia_gaia.download_data import download_vizier, download_gaia, download_sao_xmatch
+
+download_vizier()
+download_gaia()
+download_sao_xmatch()

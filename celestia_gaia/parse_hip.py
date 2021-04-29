@@ -27,7 +27,7 @@ from astropy.coordinates import ICRS, SkyCoord
 from astropy.table import Table, join, unique
 from astropy.time import Time
 
-from parse_utils import open_cds_tarfile, read_gaia
+from .parse_utils import open_cds_tarfile, read_gaia
 
 def load_gaia_hip() -> Table:
     """Load the Gaia DR2 HIP sources."""

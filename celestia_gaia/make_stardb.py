@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # gaia-stardb: Processing Gaia DR2 for celestia.Sci/Celestia
 # Copyright (C) 2019–2020  Andrew Tribick
 #
@@ -31,10 +29,10 @@ import astropy.units as u
 
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from parse_hip import process_hip
-from parse_tyc import process_tyc
-from parse_utils import WorkaroundCDSReader, open_cds_tarfile
-from spparse import CEL_UNKNOWN_STAR, parse_spectrum
+from .parse_hip import process_hip
+from .parse_tyc import process_tyc
+from .parse_utils import WorkaroundCDSReader, open_cds_tarfile
+from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
 
 VERSION = "1.0.4"
 
@@ -367,6 +365,3 @@ def make_stardb() -> None:
         contents = ['stars.dat', 'hdxindex.dat', 'saoxindex.dat', 'LICENSE.txt', 'CREDITS.md']
         for f in contents:
             zf.write(os.path.join('output', f), arcname=os.path.join(archivename, f))
-
-if __name__ == '__main__':
-    make_stardb()

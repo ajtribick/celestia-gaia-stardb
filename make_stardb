@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+
+from celestia_gaia.make_stardb import make_stardb
+
+make_stardb()

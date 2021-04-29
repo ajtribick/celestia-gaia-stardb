@@ -8,3 +8,4 @@ xmatch
 *.kate-swp
 *.pyc
 /celestia*.zip
+__pycache__

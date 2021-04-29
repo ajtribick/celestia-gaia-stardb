@@ -29,7 +29,7 @@ import astropy.units as u
 
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from parse_utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
+from .parse_utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
 
 def make_tyc(tyc1: int, tyc2: int, tyc3: int) -> int:
     """Build a synthetic HIP identifier from TYC parts."""

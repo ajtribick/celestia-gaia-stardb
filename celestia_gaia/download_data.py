@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # gaia-stardb: Processing Gaia DR2 for celestia.Sci/Celestia
 # Copyright (C) 2019–2020  Andrew Tribick
 #
@@ -36,7 +34,7 @@ from astroquery.gaia import Gaia
 from astroquery.utils.tap import Tap
 from astroquery.xmatch import XMatch
 
-from parse_utils import open_cds_tarfile
+from .parse_utils import open_cds_tarfile
 
 def yesno(prompt: str, default: bool=False) -> bool:
     """Prompt the user for yes/no input."""
@@ -311,8 +309,3 @@ def download_vizier() -> None:
 
     for file_name, url in files_urls:
         download_file(os.path.join('vizier', file_name), url)
-
-if __name__ == "__main__":
-    download_vizier()
-    download_gaia()
-    download_sao_xmatch()

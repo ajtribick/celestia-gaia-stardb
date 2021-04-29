@@ -23,8 +23,8 @@ files in the release may be used under a CC-BY-SA 4.0 license
 
 ## Folder contents
 
--  `download_data.py`: script to download the data files
--  `make_stardb.py`: script to build the star database and cross-index files
+-  `download_data`: script to download the data files
+-  `make_stardb`: script to build the star database and cross-index files
 
 ## How to use
 
@@ -47,11 +47,11 @@ steps below **before** you begin.
 
 6.  Run the download script. **This step may take several hours!**
 
-    `python download_data.py`
+    `python download_data`
 
 7.  Run the build script.
 
-    `python make_stardb.py`
+    `python make_stardb`
 
 8.  The stars.dat, hdxindex.dat and saoxindex.dat files will be written into
     the output folder
