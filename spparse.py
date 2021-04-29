@@ -38,7 +38,7 @@ class CelMkClass(IntEnum):
     N = 0x0900
     WC = 0x0a00
     WN = 0x0b00
-    Unknown = 0x0c00
+    UNKNOWN = 0x0c00
     L = 0x0d00
     T = 0x0e00
     C = 0x0f00
@@ -55,17 +55,17 @@ CEL_UNKNOWN_SUBCLASS = 0x00a0
 
 class CelLumClass(IntEnum):
     """Celestia luminosity classes."""
-    Ia0 = 0x0000
-    Ia = 0x0001
-    Ib = 0x0002
+    IA0 = 0x0000
+    IA = 0x0001
+    IB = 0x0002
     II = 0x0003
     III = 0x0004
     IV = 0x0005
     V = 0x0006
     VI = 0x0007
-    Unknown = 0x0008
+    UNKNOWN = 0x0008
 
-CEL_UNKNOWN_STAR = CelMkClass.Unknown + CEL_UNKNOWN_SUBCLASS + CelLumClass.Unknown
+CEL_UNKNOWN_STAR = CelMkClass.UNKNOWN + CEL_UNKNOWN_SUBCLASS + CelLumClass.UNKNOWN
 
 # pylint: disable=missing-function-docstring,multiple-statements
 
@@ -187,7 +187,7 @@ class SpecVisitor(PTNodeVisitor):
         elif str(node) == 'g':
             lclass = CelLumClass.III
         elif str(node) == 'c':
-            lclass = CelLumClass.Ib
+            lclass = CelLumClass.IB
         else:
             raise ValueError
         return lclass
@@ -229,9 +229,9 @@ class SpecVisitor(PTNodeVisitor):
         if (len(children) == 2
                 and (children[0] in ('Ia', 'IA'))
                 and children[1] == '0'):
-            lclass = CelLumClass.Ia0
+            lclass = CelLumClass.IA0
         elif children[0] in ('Ia0', 'IA0', '0'):
-            lclass = CelLumClass.Ia0
+            lclass = CelLumClass.IA0
         elif children[0].startswith('III'):
             lclass = CelLumClass.III
         elif children[0].startswith('II'):
@@ -241,9 +241,9 @@ class SpecVisitor(PTNodeVisitor):
         elif children[0].startswith('IX'):
             lclass = CelLumClass.VI
         elif children[0] in ('Ia', 'IA'):
-            lclass = CelLumClass.Ia
+            lclass = CelLumClass.IA
         elif children[0].startswith('I'):
-            lclass = CelLumClass.Ib
+            lclass = CelLumClass.IB
         elif children[0].startswith('VI'): # VII, VIII as well
             lclass = CelLumClass.VI
         elif children[0].startswith('V'):
@@ -259,7 +259,7 @@ class SpecVisitor(PTNodeVisitor):
         mkclass, mksubclass = children.mktype[0]
         if len(children.lumtype) > 0:
             return mkclass, mksubclass, children.lumtype[0]
-        return mkclass, mksubclass, CelLumClass.Unknown
+        return mkclass, mksubclass, CelLumClass.UNKNOWN
 
     def visit_normalstar(self, node, children):
         mkclass, mksubclass, lclass = children.noprefixstar[0]
@@ -323,7 +323,7 @@ class SpecVisitor(PTNodeVisitor):
         elif len(children.lumtype) > 0:
             lclass = children.lumtype[0]
         else:
-            lclass = CelLumClass.Unknown
+            lclass = CelLumClass.UNKNOWN
 
         if scsubclass is None:
             scsubclass = CEL_UNKNOWN_SUBCLASS
