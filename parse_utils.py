@@ -56,7 +56,7 @@ def read_gaia(files: Union[str, List[str]], id_name: str, *, extra_fields: List[
 
 class TarCds:
     """Routines for accessing CDS files contained with a tar archive."""
-    def __init__(self, tf: TarFile):
+    def __init__(self, tf: TarFile) -> None:
         self.tf = tf
 
     def read(self, table: str, names: List[str], *, readme_name=None, **kwargs) -> Table:
@@ -102,7 +102,7 @@ def open_cds_tarfile(file: str) -> Generator[TarCds, None, None]:
 class WorkaroundCDSReader:
     """Custom CDS file reader to work around errors in input data formats."""
 
-    def __init__(self, table: str, labels: List[str], dtypes: List[np.dtype], readme: IO):
+    def __init__(self, table: str, labels: List[str], dtypes: List[np.dtype], readme: IO) -> None:
         self.labels = labels
         self.dtypes = dtypes
         self.record_count, self.ranges = self._get_fields(table, labels, readme)
