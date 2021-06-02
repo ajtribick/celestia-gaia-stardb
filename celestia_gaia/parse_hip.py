@@ -20,14 +20,12 @@
 import os
 import warnings
 
-import numpy as np
 import astropy.io.ascii as io_ascii
 import astropy.units as u
-
+import numpy as np
 from astropy.coordinates import ICRS, SkyCoord
 from astropy.table import Table, join, unique
 from astropy.time import Time
-
 from erfa import ErfaWarning
 
 from .parse_utils import open_cds_tarfile, read_gaia
@@ -36,9 +34,11 @@ def load_gaia_hip() -> Table:
     """Load the Gaia DR2 HIP sources."""
     print('Loading Gaia DR2 sources for HIP')
 
-    gaia = read_gaia(os.path.join('gaia', 'gaiadr2_hip-result.csv'),
-                     'hip_id',
-                     extra_fields=['parallax', 'parallax_error'])
+    gaia = read_gaia(
+        os.path.join('gaia', 'gaiadr2_hip-result.csv'),
+        'hip_id',
+        extra_fields=['parallax', 'parallax_error'],
+    )
     gaia.rename_column('hip_id', 'HIP')
     return gaia
 
@@ -49,16 +49,22 @@ def load_xhip() -> Table:
         print('  Loading main catalog')
         hip_data = tf.read_gzip(
             'main.dat',
-            ['HIP', 'Comp', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE',
-             'e_Plx', 'Dist', 'e_Dist', 'SpType', 'RV'],
-            fill_values=[('', '-1', 'Tc', 'Lc'), ('', 'NaN', 'phi')])
+            [
+                'HIP', 'Comp', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE', 'e_Plx',
+                'Dist', 'e_Dist', 'SpType', 'RV',
+            ],
+            fill_values=[('', '-1', 'Tc', 'Lc'), ('', 'NaN', 'phi')],
+        )
         hip_data.add_index('HIP')
 
         print('  Loading photometric data')
         photo_data = tf.read_gzip(
             'photo.dat',
-            ['HIP', 'Vmag', 'Jmag', 'Hmag', 'Kmag', 'e_Jmag', 'e_Hmag', 'e_Kmag',
-             'B-V', 'V-I', 'e_B-V', 'e_V-I'])
+            [
+                'HIP', 'Vmag', 'Jmag', 'Hmag', 'Kmag', 'e_Jmag', 'e_Hmag', 'e_Kmag',
+                'B-V', 'V-I', 'e_B-V', 'e_V-I',
+            ],
+        )
         photo_data['HIP'].unit = None # for some reason it is set to parsecs in the ReadMe
         photo_data.add_index('HIP')
         hip_data = join(hip_data, photo_data, join_type='left', keys='HIP')
@@ -78,9 +84,11 @@ def load_tyc2specnew() -> Table:
 def load_sao() -> Table:
     """Load the SAO-HIP cross match."""
     print('Loading SAO-HIP cross match')
-    data = io_ascii.read(os.path.join('xmatch', 'sao_hip_xmatch.csv'),
-                         include_names=['HIP', 'SAO', 'angDist', 'delFlag'],
-                         format='csv')
+    data = io_ascii.read(
+        os.path.join('xmatch', 'sao_hip_xmatch.csv'),
+        include_names=['HIP', 'SAO', 'angDist', 'delFlag'],
+        format='csv',
+    )
 
     data = data[data['delFlag'].mask]
     data.remove_column('delFlag')
@@ -114,15 +122,19 @@ def compute_distances(hip_data: Table, length_kpc: float=1.35) -> None:
     r3coeff = np.full_like(hip_data['Plx'], 1/length_kpc)
     r2coeff = np.full_like(hip_data['Plx'], -2)
 
-    roots = np.apply_along_axis(np.roots,
-                                0,
-                                [r3coeff, r2coeff, hip_data['Plx'] / eplx2, -1 / eplx2])
+    roots = np.apply_along_axis(
+        np.roots,
+        0,
+        [r3coeff, r2coeff, hip_data['Plx'] / eplx2, -1 / eplx2],
+    )
     roots[np.logical_or(np.real(roots) < 0.0, abs(np.imag(roots)) > 1.0e-6)] = np.nan
     parallax_distance = np.nanmin(np.real(roots), 0) * 1000
 
     # prefer cluster distances (e_Dist NULL), otherwise use computed distance
-    is_cluster_distance = np.logical_and(np.logical_not(hip_data['Dist'].mask),
-                                         hip_data['e_Dist'].mask)
+    is_cluster_distance = np.logical_and(
+        np.logical_not(hip_data['Dist'].mask),
+        hip_data['e_Dist'].mask,
+    )
 
     hip_data['r_est'] = np.where(is_cluster_distance, hip_data['Dist'], parallax_distance)
     hip_data['r_est'].unit = u.pc
@@ -135,14 +147,16 @@ def update_coordinates(hip_data: Table) -> None:
     print('Updating coordinates to J2015.5')
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', ErfaWarning)
-        coords = SkyCoord(frame=ICRS,
-                          ra=hip_data['RAdeg'],
-                          dec=hip_data['DEdeg'],
-                          pm_ra_cosdec=hip_data['pmRA'],
-                          pm_dec=hip_data['pmDE'],
-                          distance=hip_data['r_est'],
-                          radial_velocity=hip_data['RV'].filled(0),
-                          obstime=HIP_TIME).apply_space_motion(GAIA_TIME)
+        coords = SkyCoord(
+            frame=ICRS,
+            ra=hip_data['RAdeg'],
+            dec=hip_data['DEdeg'],
+            pm_ra_cosdec=hip_data['pmRA'],
+            pm_dec=hip_data['pmDE'],
+            distance=hip_data['r_est'],
+            radial_velocity=hip_data['RV'].filled(0),
+            obstime=HIP_TIME,
+        ).apply_space_motion(GAIA_TIME)
 
     hip_data['ra'] = coords.ra / u.deg
     hip_data['ra'].unit = u.deg
@@ -164,34 +178,35 @@ def process_xhip() -> Table:
 
 def process_hip() -> Table:
     """Process the Gaia and HIP data."""
-    data = join(load_gaia_hip(),
-                process_xhip(),
-                keys=['HIP'],
-                join_type='outer',
-                table_names=['gaia', 'xhip'])
+    data = join(
+        load_gaia_hip(),
+        process_xhip(),
+        keys=['HIP'],
+        join_type='outer',
+        table_names=['gaia', 'xhip'],
+    )
 
     data = join(data, load_sao(), keys=['HIP'], join_type='left')
 
-    data['r_gaia_score'] = np.where(data['r_est_gaia'].mask,
-                                    -20000.0,
-                                    np.where(data['parallax'] <= 0,
-                                             -10000.0,
-                                             data['parallax'] / data['parallax_error']))
+    data['r_gaia_score'] = np.where(
+        data['r_est_gaia'].mask,
+        -20000.0,
+        np.where(data['parallax'] <= 0, -10000.0, data['parallax'] / data['parallax_error']),
+    )
+    data['r_xhip_score'] = np.where(data['Plx'] <= 0, -10000.0, data['Plx'] / data['e_Plx'])
 
-    data['r_xhip_score'] = np.where(data['Plx'] <= 0,
-                                    -10000.0,
-                                    data['Plx'] / data['e_Plx'])
-
-    data['dist_use'] = np.where(data['r_gaia_score'] >= data['r_xhip_score'],
-                                data['r_est_gaia'],
-                                data['r_est_xhip'])
+    data['dist_use'] = np.where(
+        data['r_gaia_score'] >= data['r_xhip_score'], data['r_est_gaia'], data['r_est_xhip']
+    )
     data['dist_use'].unit = u.pc
 
     data['ra'] = data['ra_gaia'].filled(data['ra_xhip'])
     data['dec'] = data['dec_gaia'].filled(data['dec_xhip'])
 
-    data.remove_columns(['ra_gaia', 'dec_gaia', 'r_est_gaia', 'ra_xhip', 'dec_xhip', 'r_est_xhip',
-                         'parallax', 'parallax_error', 'Plx', 'e_Plx',
-                         'r_gaia_score', 'r_xhip_score'])
+    data.remove_columns([
+        'ra_gaia', 'dec_gaia', 'r_est_gaia', 'ra_xhip', 'dec_xhip', 'r_est_xhip',
+        'parallax', 'parallax_error', 'Plx', 'e_Plx',
+        'r_gaia_score', 'r_xhip_score',
+    ])
 
     return data

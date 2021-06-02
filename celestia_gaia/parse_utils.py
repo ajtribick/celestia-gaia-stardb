@@ -21,7 +21,6 @@ import gzip
 import re
 import tarfile
 import warnings
-
 from contextlib import contextmanager
 from tarfile import TarFile
 from typing import Dict, Generator, IO, List, TextIO, Tuple, Union
@@ -29,7 +28,6 @@ from typing import Dict, Generator, IO, List, TextIO, Tuple, Union
 import astropy.io.ascii as io_ascii
 import astropy.units as u
 import numpy as np
-
 from astropy.table import Table, vstack
 from astropy.units import UnitsWarning
 
@@ -42,8 +40,10 @@ def read_gaia(files: Union[str, List[str]], id_name: str, *, extra_fields: List[
     if isinstance(files, str):
         gaia = io_ascii.read(files, include_names=fields, format='csv')
     else:
-        gaia = vstack([io_ascii.read(f, include_names=fields, format='csv') for f in files],
-                      join_type='exact')
+        gaia = vstack(
+            [io_ascii.read(f, include_names=fields, format='csv') for f in files],
+            join_type='exact',
+        )
 
     gaia['ra'].unit = u.deg
     gaia['dec'].unit = u.deg
@@ -79,10 +79,9 @@ class TarCds:
 
     @classmethod
     def _create_reader(cls, readme: IO, table: str, names: List[str], **kwargs) -> io_ascii.Cds:
-        reader = io_ascii.get_reader(io_ascii.Cds,
-                                     readme=readme,
-                                     include_names=names,
-                                     **kwargs)
+        reader = io_ascii.get_reader(
+            io_ascii.Cds, readme=readme, include_names=names, **kwargs,
+        )
         reader.data.table_name = table
         return reader
 
@@ -131,16 +130,22 @@ class WorkaroundCDSReader:
         return True
 
     @classmethod
-    def _get_fields(cls, table: str, labels: List[str], readme: IO) \
-            -> Tuple[int, Dict[str, Tuple[int, int]]]:
+    def _get_fields(
+        cls, table: str, labels: List[str], readme: IO
+    ) -> Tuple[int, Dict[str, Tuple[int, int]]]:
         ranges = {}
 
         re_file = re.compile(re.escape(table) + r'\ +[0-9]+\ +(?P<length>[0-9]+)')
         re_table = re.compile(r'Byte-by-byte Description of file: (?P<name>\S+)$')
-        re_field = re.compile(r'''\ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+) # range
-                                \ +\S+ # format
-                                \ +\S+ # units
-                                \ +(?P<label>\S+) # label''', re.X)
+        re_field = re.compile(
+            r'''
+                \ *(?P<start>[0-9]+)\ *-\ *(?P<end>[0-9]+) # range
+                \ +\S+ # format
+                \ +\S+ # units
+                \ +(?P<label>\S+) # label
+            ''',
+            re.X,
+        )
         record_count = None
         current_table = None
         for line in readme:

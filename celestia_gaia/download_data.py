@@ -19,15 +19,13 @@
 
 import contextlib
 import os
-
 from typing import Union, cast
 from zipfile import ZipFile
 
-import numpy as np
-import requests
 import astropy.io.ascii as io_ascii
 import astropy.io.votable as votable
-
+import numpy as np
+import requests
 from astropy import units
 from astropy.table import Table, join, unique, vstack
 from astroquery.gaia import Gaia
@@ -100,12 +98,14 @@ FROM
     LEFT JOIN external.gaiadr2_geometric_distance d ON d.source_id = x.source_id"""
 
     print(query)
-    job = Gaia.launch_job_async(query,
-                                upload_resource=upload_resource,
-                                upload_table_name=upload_table_name,
-                                dump_to_file=True,
-                                output_file=outfile_name,
-                                output_format='csv')
+    job = Gaia.launch_job_async(
+        query,
+        upload_resource=upload_resource,
+        upload_table_name=upload_table_name,
+        dump_to_file=True,
+        output_file=outfile_name,
+        output_format='csv',
+    )
     try:
         job.save_results()
     finally:
@@ -133,10 +133,10 @@ def download_gaia_hip() -> None:
 
     with ZipFile(conesearch_file, 'r') as csz:
         with csz.open('Hipparcos2GaiaDR2coneSearch.csv', 'r') as f:
-            cone_map = io_ascii.read(f,
-                                     format='csv',
-                                     names=['HIP', 'GDR2', 'dist'],
-                                     include_names=['HIP', 'GDR2'])
+            cone_map = io_ascii.read(
+                f, format='csv', names=['HIP', 'GDR2', 'dist'],
+                include_names=['HIP', 'GDR2'],
+            )
 
     cone_map = unique(cone_map)
 
@@ -175,10 +175,12 @@ def _load_ascc_tyc_ids(filename: str) -> Table:
             sections = os.path.split(data_file.name)
             if len(sections) != 2 or sections[0] != '.' or not sections[1].startswith('cc'):
                 continue
+
             section_data = tf.read_gzip(
                 os.path.splitext(sections[1])[0],
                 ['TYC1', 'TYC2', 'TYC3'],
-                readme_name='cc*.dat')
+                readme_name='cc*.dat',
+            )
 
             if data is None:
                 data = section_data
@@ -229,23 +231,26 @@ FROM
 WHERE
     id2.id LIKE 'Gaia DR2 %'"""
         print(query)
-        job = simbad.launch_job_async(query,
-                                      upload_resource=missing_ids,
-                                      upload_table_name='missing_tyc',
-                                      output_file=simbad_file,
-                                      output_format='votable',
-                                      dump_to_file=True)
+        job = simbad.launch_job_async(
+            query,
+            upload_resource=missing_ids,
+            upload_table_name='missing_tyc',
+            output_file=simbad_file,
+            output_format='votable',
+            dump_to_file=True,
+        )
         job.save_results()
 
     tyc2_file = os.path.join('gaia', 'gaiadr2_tyc-result-extra.csv')
     if proceed_checkfile(tyc2_file):
         missing_ids = votable.parse(simbad_file).resources[0].tables[0].to_table()
-
-        missing_ids['tyc_id'] = [m[m.rfind(' ')+1:] for m in missing_ids['tyc_id'].astype('U')]
+        missing_ids['tyc_id'] = [
+            m[m.rfind(' ')+1:] for m in missing_ids['tyc_id'].astype('U')
+        ]
         missing_ids.rename_column('tyc_id', 'original_ext_source_id')
-
-        missing_ids['gaia_id'] = [int(m[m.rfind(' ')+1:])
-                                  for m in missing_ids['gaia_id'].astype('U')]
+        missing_ids['gaia_id'] = [
+            int(m[m.rfind(' ')+1:]) for m in missing_ids['gaia_id'].astype('U')
+        ]
         missing_ids.rename_column('gaia_id', 'source_id')
 
         download_gaia_data('tyc2_id', missing_ids, tyc2_file)
@@ -265,9 +270,9 @@ def download_xmatch(cat1: str, cat2: str, outfile_name: str) -> None:
     if not proceed_checkfile(outfile_name):
         return
 
-    result = XMatch.query(cat1=cat1,
-                          cat2=cat2,
-                          max_distance=5 * units.arcsec)
+    result = XMatch.query(
+        cat1=cat1, cat2=cat2, max_distance=5 * units.arcsec,
+    )
 
     io_ascii.write(result, outfile_name, format='csv')
 

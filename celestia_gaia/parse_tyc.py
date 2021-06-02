@@ -20,13 +20,11 @@
 import gzip
 import os
 import tarfile
-
 from typing import Dict, IO, Tuple
 
-import numpy as np
 import astropy.io.ascii as io_ascii
 import astropy.units as u
-
+import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
 from .parse_utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
@@ -99,13 +97,15 @@ def parse_tyc_string(data: Table, src_column: str, dest_column: str='TYC') -> No
     data[dest_column] = make_tyc(tycs[:, 0], tycs[:, 1], tycs[:, 2])
     data.remove_column(src_column)
 
-def parse_tyc_cols(data: Table,
-                   src_columns: Tuple[str, str, str]=('TYC1', 'TYC2', 'TYC3'),
-                   dest_column: str='TYC') -> None:
+def parse_tyc_cols(
+    data: Table,
+    src_columns: Tuple[str, str, str]=('TYC1', 'TYC2', 'TYC3'),
+    dest_column: str='TYC'
+) -> None:
     """Convert TYC identifier components into a synthetic HIP identifier."""
-    data[dest_column] = make_tyc(data[src_columns[0]],
-                                 data[src_columns[1]],
-                                 data[src_columns[2]])
+    data[dest_column] = make_tyc(
+        data[src_columns[0]], data[src_columns[1]], data[src_columns[2]],
+    )
     data.remove_columns(src_columns)
 
 def load_gaia_tyc() -> Table:
@@ -132,15 +132,20 @@ def load_tyc_spec() -> Table:
 
 def _load_ascc_section(tf: TarCds, table: str) -> Table:
     print(f'  Loading {table}')
-    section = tf.read_gzip(table,
-                           ['Bmag', 'Vmag', 'e_Bmag', 'e_Vmag', 'd3', 'TYC1', 'TYC2', 'TYC3',
-                            'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag', 'SpType'])
+    section = tf.read_gzip(
+        table,
+        [
+            'Bmag', 'Vmag', 'e_Bmag', 'e_Vmag', 'd3', 'TYC1', 'TYC2', 'TYC3',
+            'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag', 'SpType',
+        ],
+    )
 
     section = section[section['TYC1'] != 0]
     parse_tyc_cols(section)
 
-    convert_cols = ['Bmag', 'Vmag', 'e_Bmag', 'e_Vmag', 'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag',
-                    'Kmag', 'e_Kmag']
+    convert_cols = [
+        'Bmag', 'Vmag', 'e_Bmag', 'e_Vmag', 'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag',
+    ]
     for col in convert_cols:
         section[col] = section[col].astype(np.float64)
         section[col].convert_unit_to(u.mag)
@@ -204,7 +209,8 @@ class TYCTeffReader(WorkaroundCDSReader):
                 np.empty(self.record_count, np.int64),
                 np.empty(self.record_count, np.float64)
             ],
-            names=['TYC', 'teff_val'])
+            names=['TYC', 'teff_val'],
+        )
 
     def process_line(self, table: Table, record: int, fields: Dict[str, str]) -> bool:
         """Processes fields from a line of the input file."""
@@ -240,16 +246,22 @@ def load_tyc_teff() -> Table:
 def load_sao() -> Table:
     """Load the SAO-TYC2 cross match."""
     print('Loading SAO-TYC2 cross match')
-    xmatch_files = ['sao_tyc2_xmatch.csv',
-                    'sao_tyc2_suppl1_xmatch.csv',
-                    'sao_tyc2_suppl2_xmatch.csv']
+    xmatch_files = [
+        'sao_tyc2_xmatch.csv',
+        'sao_tyc2_suppl1_xmatch.csv',
+        'sao_tyc2_suppl2_xmatch.csv',
+    ]
     data = vstack(
-        [io_ascii.read(os.path.join('xmatch', f),
-                       include_names=['SAO', 'TYC1', 'TYC2', 'TYC3', 'angDist', 'delFlag'],
-                       format='csv',
-                       converters={'delFlag': [io_ascii.convert_numpy(np.str)]})
-         for f in xmatch_files],
-        join_type='exact')
+        [
+            io_ascii.read(
+                os.path.join('xmatch', f),
+                include_names=['SAO', 'TYC1', 'TYC2', 'TYC3', 'angDist', 'delFlag'],
+                format='csv',
+                converters={'delFlag': [io_ascii.convert_numpy(np.str)]},
+            ) for f in xmatch_files
+        ],
+        join_type='exact',
+    )
 
     data = data[data['delFlag'].mask]
     data.remove_column('delFlag')
@@ -265,25 +277,30 @@ def load_sao() -> Table:
 def merge_tables() -> Table:
     """Merges the tables."""
     data = join(load_gaia_tyc(), load_tyc_spec(), keys=['TYC'], join_type='left')
-    data = join(data, load_ascc(),
-                keys=['TYC'],
-                join_type='left',
-                table_names=('gaia', 'ascc'),
-                metadata_conflicts='silent')
+    data = join(
+        data, load_ascc(),
+        keys=['TYC'],
+        join_type='left',
+        table_names=('gaia', 'ascc'),
+        metadata_conflicts='silent',
+    )
     data['SpType'] = MaskedColumn(data['SpType_gaia'].filled(data['SpType_ascc'].filled('')))
     data['SpType'].mask = data['SpType'] == ''
     data.remove_columns(['SpType_gaia', 'SpType_ascc'])
 
     data = join(data, load_tyc_hd(), keys=['TYC'], join_type='left', metadata_conflicts='silent')
 
-    data = join(data,
-                load_tyc_teff(),
-                keys=['TYC'],
-                join_type='left',
-                table_names=('gaia', 'tycteff'))
+    data = join(
+        data,
+        load_tyc_teff(),
+        keys=['TYC'],
+        join_type='left',
+        table_names=('gaia', 'tycteff'),
+    )
 
     data['teff_val'] = MaskedColumn(
-        data['teff_val_gaia'].filled(data['teff_val_tycteff'].filled(np.nan)))
+        data['teff_val_gaia'].filled(data['teff_val_tycteff'].filled(np.nan)),
+    )
     data['teff_val'].mask = np.isnan(data['teff_val'])
     data.remove_columns(['teff_val_tycteff', 'teff_val_gaia'])
 

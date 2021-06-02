@@ -18,11 +18,12 @@
 """Routines for parsing spectral types."""
 
 import re
-
 from enum import IntEnum
 
-from arpeggio import (NoMatch, OneOrMore, Optional, ParserPython, PTNodeVisitor, RegExMatch,
-                      ZeroOrMore, visit_parse_tree)
+from arpeggio import (
+    NoMatch, OneOrMore, Optional, ParserPython, PTNodeVisitor,
+    RegExMatch, ZeroOrMore, visit_parse_tree
+)
 
 class CelMkClass(IntEnum):
     """Celestia MK and WD classes."""
@@ -84,7 +85,8 @@ def msnorange(): return 'M', spacer, Optional(numeric, spacer), 'S'
 def msrange():
     return [
         ('M', spacer, numeric, rangesym, numeric, spacer, 'S'),
-        ('M', spacer, numeric, ['-', '+'], spacer, 'S')]
+        ('M', spacer, numeric, ['-', '+'], spacer, 'S'),
+    ]
 
 # normal MK spectra, e.g. K4 plus Wolf-Rayet stars
 
@@ -92,12 +94,14 @@ def mkclass(): return ['WN', 'WC', 'WO', 'WR', 'O', 'B', 'A', 'F', 'G', 'K', 'M'
 def mknorange():
     return [
         (mkclass, spacer, '(', numeric, ')'),
-        (mkclass, Optional(spacer, numeric))]
+        (mkclass, Optional(spacer, numeric)),
+    ]
 def mkrange():
     return [
         (mkclass, spacer, numeric, rangesym, numeric),
         (mkclass, spacer, '(', numeric, rangesym, numeric, ')'),
-        (mkclass, spacer, numeric, ['-', '+'])]
+        (mkclass, spacer, numeric, ['-', '+']),
+    ]
 
 def mkmsnorange(): return [msnorange, mknorange]
 def mkmsrange(): return [msrange, mkrange]
@@ -106,19 +110,22 @@ def mktype():
     return [
         (mkmsnorange, rangesym, mkmsnorange),
         mkmsrange,
-        mkmsnorange]
+        mkmsnorange,
+    ]
 
 def lumclass(): return ['0', 'Vz', roman]
 def lumrange(): return ['Ia0', (lumclass, Optional(rangesym, lumclass))]
 def lumtype():
     return [
         (lumrange, Optional(uncertain)),
-        ('(', lumrange, ')')]
+        ('(', lumrange, ')'),
+    ]
 
 def noprefixstar():
     return [
         (mktype, uncertain, spacer, Optional(lumtype)),
-        ('(', mktype, ')', spacer, Optional(lumtype))]
+        ('(', mktype, ')', spacer, Optional(lumtype)),
+    ]
 def normalstar(): return (Optional(prefix, uncertain), noprefixstar)
 
 # metallic stars (kA5hF0mA4 etc.)
@@ -138,7 +145,8 @@ def scrange():
     return [
         (numeric, '-', Optional(numeric)),
         (numeric, '+'),
-        (numeric, Optional(OneOrMore(' '), '-', OneOrMore(' '), numeric))]
+        (numeric, Optional(OneOrMore(' '), '-', OneOrMore(' '), numeric)),
+    ]
 
 def scindices(): return spacer, scrange, Optional(['/', ','], scrange)
 
@@ -153,14 +161,16 @@ def wdclass(): return ['DA', 'DB', 'DC', 'DO', 'DZ', 'DQ', 'DX', 'D']
 def wdstar():
     return [
         (wdclass, numeric, Optional(rangesym, numeric)),
-        (wdclass, Optional(rangesym, wdclass))]
+        (wdclass, Optional(rangesym, wdclass)),
+    ]
 
 def starspectrum(): return [metalstar, normalstar, scstar, wdstar]
 def spectrum():
     return [
         starspectrum,
         ('(', starspectrum, ')'),
-        ('[', starspectrum, ']')]
+        ('[', starspectrum, ']'),
+    ]
 
 class SpecVisitor(PTNodeVisitor):
     """Parse tree visitor to compute Celestia spectral type."""
@@ -226,9 +236,9 @@ class SpecVisitor(PTNodeVisitor):
         return CelMkClass[mkclass], subclass
 
     def visit_lumrange(self, node, children):
-        if (len(children) == 2
-                and (children[0] in ('Ia', 'IA'))
-                and children[1] == '0'):
+        if (
+            len(children) == 2 and (children[0] in ('Ia', 'IA')) and children[1] == '0'
+        ):
             lclass = CelLumClass.IA0
         elif children[0] in ('Ia0', 'IA0', '0'):
             lclass = CelLumClass.IA0
@@ -358,7 +368,6 @@ class SpecVisitor(PTNodeVisitor):
                 wdsubclass = 0x90
             else:
                 wdsubclass *= 0x10
-
         else:
             wdsubclass = CEL_UNKNOWN_SUBCLASS
 
@@ -381,8 +390,10 @@ def parse_spectrum(sptype: str) -> int:
         return CEL_UNKNOWN_STAR
 
     # remove outer brackets
-    while ((processed_type[0] == '(' and processed_type[-1] == ')')
-           or (processed_type[0] == '[' and processed_type[-1] == ']')):
+    while (
+        (processed_type[0] == '(' and processed_type[-1] == ')')
+        or (processed_type[0] == '[' and processed_type[-1] == ']')
+    ):
         processed_type = processed_type[1:-1]
 
     # remove leading uncertainty indicator
@@ -394,8 +405,10 @@ def parse_spectrum(sptype: str) -> int:
         processed_type = 'O' + processed_type[1:]
 
     # remove nebulae and novae (might otherwise be parsed as N-type)
-    if (processed_type.casefold().startswith("neb".casefold())
-            or processed_type.casefold().startswith("nova".casefold())):
+    if (
+        processed_type.casefold().startswith("neb".casefold())
+        or processed_type.casefold().startswith("nova".casefold())
+    ):
         return CEL_UNKNOWN_STAR
 
     # resolve ambiguity about whether + is an open-ended range or identifies a component
