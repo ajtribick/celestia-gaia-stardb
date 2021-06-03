@@ -17,8 +17,7 @@
 
 """Routines for downloading the data files."""
 
-import contextlib
-import os
+from pathlib import Path, PurePath
 from typing import Union, cast
 from zipfile import ZipFile
 
@@ -33,6 +32,12 @@ from astroquery.utils.tap import Tap
 from astroquery.xmatch import XMatch
 
 from .parse_utils import open_cds_tarfile
+
+GAIA_DIR = Path('data', 'gaiadr2')
+SIMBAD_DIR = Path('data', 'simbad')
+VIZIER_DIR = Path('data', 'vizier')
+XMATCH_DIR = Path('data', 'xmatch')
+
 
 def yesno(prompt: str, default: bool=False) -> bool:
     """Prompt the user for yes/no input."""
@@ -50,32 +55,34 @@ def yesno(prompt: str, default: bool=False) -> bool:
         if answer in ('n', 'N'):
             return False
 
-def proceed_checkfile(filename: str) -> bool:
+
+def proceed_checkfile(path: Path) -> bool:
     """Check if a file exists, if so prompt the user if they want to replace it."""
-    if os.path.exists(filename):
-        if yesno(f'{filename} already exists, replace?'):
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(filename)
+    if path.exists():
+        if yesno(f'{path} already exists, replace?'):
+            path.unlink()
         else:
             return False
     return True
 
-def download_file(outfile_name: str, url: str) -> bool:
+
+def download_file(path: Path, url: str) -> bool:
     """Download a file using requests."""
-    if not proceed_checkfile(outfile_name):
+    if not proceed_checkfile(path):
         return
 
     print(f'Downloading {url}')
     response = requests.get(url, stream=True)
     if response.status_code == 200:
-        with open(outfile_name, 'wb') as f:
+        with path.open('wb') as f:
             f.write(response.raw.read())
     else:
         print('Failed to download')
 
+
 # --- GAIA DATA DOWNLOAD ---
 
-def download_gaia_data(colname: str, xindex: Union[str, Table], outfile_name: str) -> None:
+def download_gaia_data(colname: str, xindex: Union[str, Table], outfile_path: Path) -> None:
     """Query and download Gaia data."""
 
     if isinstance(xindex, str):
@@ -103,7 +110,7 @@ FROM
         upload_resource=upload_resource,
         upload_table_name=upload_table_name,
         dump_to_file=True,
-        output_file=outfile_name,
+        output_file=outfile_path,
         output_format='csv',
     )
     try:
@@ -111,16 +118,19 @@ FROM
     finally:
         Gaia.remove_jobs(job.jobid)
 
-CONESEARCH_URL = \
+
+CONESEARCH_URL = (
     'https://www.cosmos.esa.int/documents/29201/1769576/Hipparcos2GaiaDR2coneSearch.zip'
+)
+
 
 def download_gaia_hip() -> None:
     """Download HIP data from the Gaia archive."""
-    hip_file = os.path.join('gaia', 'gaiadr2_hip-result.csv')
+    hip_file = GAIA_DIR/'gaiadr2_hip-result.csv'
     if not proceed_checkfile(hip_file):
         return
 
-    conesearch_file = os.path.join('gaia', 'hip2conesearch.zip')
+    conesearch_file = GAIA_DIR/'hip2conesearch.zip'
     if proceed_checkfile(conesearch_file):
         download_file(conesearch_file, CONESEARCH_URL)
 
@@ -128,7 +138,7 @@ def download_gaia_hip() -> None:
     # actually present, so use the mapping from Kervella et al. (2019) "Binarity of Hipparcos
     # stars from Gaia pm anomaly" instead.
 
-    with open_cds_tarfile(os.path.join('vizier', 'hipgpma.tar.gz')) as tf:
+    with open_cds_tarfile(VIZIER_DIR/'hipgpma.tar.gz') as tf:
         hip_map = unique(tf.read_gzip('hipgpma.dat', ['HIP', 'GDR2']))
 
     with ZipFile(conesearch_file, 'r') as csz:
@@ -148,8 +158,9 @@ def download_gaia_hip() -> None:
 
     download_gaia_data('hip_id', hip_map, hip_file)
 
-def _load_gaia_tyc_ids(filename: str) -> Table:
-    with open(filename, 'r') as f:
+
+def _load_gaia_tyc_ids(path: Path) -> Table:
+    with path.open('r') as f:
         header = f.readline().split(',')
         col_idx = header.index('tyc2_id')
         tyc1 = []
@@ -168,18 +179,17 @@ def _load_gaia_tyc_ids(filename: str) -> Table:
 
         return Table([tyc1, tyc2, tyc3], names=['TYC1','TYC2','TYC3'], dtype=('i4', 'i4', 'i4'))
 
-def _load_ascc_tyc_ids(filename: str) -> Table:
+
+def _load_ascc_tyc_ids(filename: Path) -> Table:
     data = None
     with open_cds_tarfile(filename) as tf:
         for data_file in tf.tf:
-            sections = os.path.split(data_file.name)
-            if len(sections) != 2 or sections[0] != '.' or not sections[1].startswith('cc'):
+            path = PurePath(data_file.name)
+            if path.parent != PurePath('.') or not path.stem.startswith('cc'):
                 continue
 
             section_data = tf.read_gzip(
-                os.path.splitext(sections[1])[0],
-                ['TYC1', 'TYC2', 'TYC3'],
-                readme_name='cc*.dat',
+                path.stem, ['TYC1', 'TYC2', 'TYC3'], readme_name='cc*.dat',
             )
 
             if data is None:
@@ -189,7 +199,8 @@ def _load_ascc_tyc_ids(filename: str) -> Table:
 
     return data
 
-def get_missing_tyc_ids(tyc_file: str, ascc_file: str) -> Table:
+
+def get_missing_tyc_ids(tyc_file: Path, ascc_file: Path) -> Table:
     """Finds the ASCC TYC ids that are not present in Gaia cross-match."""
     print("Finding missing TYC ids in ASCC")
     t_asc = unique(_load_ascc_tyc_ids(ascc_file))
@@ -205,20 +216,20 @@ def get_missing_tyc_ids(tyc_file: str, ascc_file: str) -> Table:
 
     return Table([[f"TYC {t['TYC1']}-{t['TYC2']}-{t['TYC3']}" for t in t_missing]], names=['id'])
 
+
 def download_gaia_tyc() -> None:
     """Download TYC data from the Gaia archive."""
 
-    tyc_file = os.path.join('gaia', 'gaiadr2_tyc-result.csv')
+    tyc_file = GAIA_DIR/'gaiadr2_tyc-result.csv'
     if proceed_checkfile(tyc_file):
         download_gaia_data('tyc2_id', 'gaiadr2.tycho2_best_neighbour', tyc_file)
 
     # Use SIMBAD to fill in some of the missing entries
-    with contextlib.suppress(FileExistsError):
-        os.mkdir('simbad')
+    SIMBAD_DIR.mkdir(parents=True, exist_ok=True)
 
-    simbad_file = os.path.join('simbad', 'tyc-gaia.votable')
+    simbad_file = SIMBAD_DIR/'tyc-gaia.votable'
     if proceed_checkfile(simbad_file):
-        ascc_file = os.path.join('vizier', 'ascc.tar.gz')
+        ascc_file = VIZIER_DIR/'ascc.tar.gz'
         missing_ids = get_missing_tyc_ids(tyc_file, ascc_file)
         print("Querying SIMBAD for Gaia DR2 identifiers")
         simbad = Tap(url='http://simbad.u-strasbg.fr:80/simbad/sim-tap')
@@ -241,7 +252,7 @@ WHERE
         )
         job.save_results()
 
-    tyc2_file = os.path.join('gaia', 'gaiadr2_tyc-result-extra.csv')
+    tyc2_file = GAIA_DIR/'gaiadr2_tyc-result-extra.csv'
     if proceed_checkfile(tyc2_file):
         missing_ids = votable.parse(simbad_file).resources[0].tables[0].to_table()
         missing_ids['tyc_id'] = [
@@ -255,31 +266,32 @@ WHERE
 
         download_gaia_data('tyc2_id', missing_ids, tyc2_file)
 
+
 def download_gaia() -> None:
     """Download data from the Gaia archive."""
-    with contextlib.suppress(FileExistsError):
-        os.mkdir('gaia')
+    GAIA_DIR.mkdir(parents=True, exist_ok=True)
 
     download_gaia_hip()
     download_gaia_tyc()
 
+
 # --- SAO XMATCH DOWNLOAD ---
 
-def download_xmatch(cat1: str, cat2: str, outfile_name: str) -> None:
+def download_xmatch(cat1: str, cat2: str, path: Path) -> None:
     """Download a cross-match from VizieR."""
-    if not proceed_checkfile(outfile_name):
+    if not proceed_checkfile(path):
         return
 
     result = XMatch.query(
         cat1=cat1, cat2=cat2, max_distance=5 * units.arcsec,
     )
 
-    io_ascii.write(result, outfile_name, format='csv')
+    io_ascii.write(result, path, format='csv')
+
 
 def download_sao_xmatch() -> None:
     """Download cross-matches to the SAO catalogue."""
-    with contextlib.suppress(FileExistsError):
-        os.mkdir('xmatch')
+    XMATCH_DIR.mkdir(parents=True, exist_ok=True)
 
     cross_matches = [
         ('vizier:I/131A/sao', 'vizier:I/311/hip2', 'sao_hip_xmatch.csv'),
@@ -290,13 +302,14 @@ def download_sao_xmatch() -> None:
 
     for cat1, cat2, filename in cross_matches:
         print(f'Downloading {cat1}-{cat2} crossmatch')
-        download_xmatch(cat1, cat2, os.path.join('xmatch', filename))
+        download_xmatch(cat1, cat2, XMATCH_DIR/filename)
+
 
 # --- VIZIER DOWNLOAD ---
+
 def download_vizier() -> None:
     """Download catalogue archive files from VizieR."""
-    with contextlib.suppress(FileExistsError):
-        os.mkdir('vizier')
+    VIZIER_DIR.mkdir(parents=True, exist_ok=True)
 
     files_urls = [
         ('ascc.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?I/280B'),
@@ -313,4 +326,4 @@ def download_vizier() -> None:
     ]
 
     for file_name, url in files_urls:
-        download_file(os.path.join('vizier', file_name), url)
+        download_file(VIZIER_DIR/file_name, url)

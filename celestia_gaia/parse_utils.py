@@ -22,8 +22,9 @@ import re
 import tarfile
 import warnings
 from contextlib import contextmanager
+from pathlib import Path
 from tarfile import TarFile
-from typing import Dict, Generator, IO, List, TextIO, Tuple, Union
+from typing import Dict, Generator, IO, List, Optional, TextIO, Tuple, Union
 
 import astropy.io.ascii as io_ascii
 import astropy.units as u
@@ -31,19 +32,22 @@ import numpy as np
 from astropy.table import Table, vstack
 from astropy.units import UnitsWarning
 
-def read_gaia(files: Union[str, List[str]], id_name: str, *, extra_fields: List[str]=None):
+
+def read_gaia(
+    files: Union[Path, List[Path]], id_name: str, *, extra_fields: Optional[List[str]] = None
+):
     """Parse the CSV files produced by querying the Gaia TAP endpoint."""
     fields = ['source_id', id_name, 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp', 'teff_val', 'r_est']
     if extra_fields is not None:
         fields += extra_fields
 
-    if isinstance(files, str):
-        gaia = io_ascii.read(files, include_names=fields, format='csv')
-    else:
+    if isinstance(files, list):
         gaia = vstack(
             [io_ascii.read(f, include_names=fields, format='csv') for f in files],
             join_type='exact',
         )
+    else:
+        gaia = io_ascii.read(files, include_names=fields, format='csv')
 
     gaia['ra'].unit = u.deg
     gaia['dec'].unit = u.deg
@@ -54,12 +58,15 @@ def read_gaia(files: Union[str, List[str]], id_name: str, *, extra_fields: List[
 
     return gaia
 
+
 class TarCds:
     """Routines for accessing CDS files contained with a tar archive."""
     def __init__(self, tf: TarFile) -> None:
         self.tf = tf
 
-    def read(self, table: str, names: List[str], *, readme_name=None, **kwargs) -> Table:
+    def read(
+        self, table: str, names: List[str], *, readme_name: Optional[str] = None, **kwargs
+    ) -> Table:
         """Reads a table from the CDS archive."""
         if readme_name is None:
             readme_name = table
@@ -68,7 +75,9 @@ class TarCds:
             with self.tf.extractfile(f'./{table}') as f:
                 return self._read(reader, f)
 
-    def read_gzip(self, table: str, names: List[str], *, readme_name=None, **kwargs) -> Table:
+    def read_gzip(
+        self, table: str, names: List[str], *, readme_name: Optional[str]=None, **kwargs
+    ) -> Table:
         """Reads a gzipped table from the CDS archive."""
         if readme_name is None:
             readme_name = table
@@ -92,11 +101,13 @@ class TarCds:
             warnings.simplefilter('ignore', UnitsWarning)
             return reader.read(file)
 
+
 @contextmanager
-def open_cds_tarfile(file: str) -> Generator[TarCds, None, None]:
+def open_cds_tarfile(file: Path) -> Generator[TarCds, None, None]:
     """Opens a CDS tarfile."""
     with tarfile.open(file, 'r:gz') as tf:
         yield TarCds(tf)
+
 
 class WorkaroundCDSReader:
     """Custom CDS file reader to work around errors in input data formats."""

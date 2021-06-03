@@ -17,22 +17,24 @@
 
 """Makes the star database."""
 
-import contextlib
 import gzip
-import os
 import struct
+from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
 import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
+from .download_data import VIZIER_DIR
 from .parse_hip import process_hip
 from .parse_tyc import process_tyc
 from .parse_utils import WorkaroundCDSReader, open_cds_tarfile
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
 
 VERSION = "1.0.4"
+
+OUTPUT_DIR = Path('output')
 
 # remove the following objects from the output
 
@@ -60,11 +62,13 @@ parse_spectrum_vec = np.vectorize(parse_spectrum, otypes=[np.uint16]) # pylint: 
 
 CEL_SPECS = parse_spectrum_vec(['OBAFGKM'[i//10]+str(i%10) for i in range(3, 70)])
 
+
 def load_ubvri() -> Table:
     """Load UBVRI Teff calibration from VizieR archive."""
     print('Loading UBVRI calibration')
-    with open_cds_tarfile(os.path.join('vizier', 'ubvriteff.tar.gz')) as tf:
+    with open_cds_tarfile(VIZIER_DIR/'ubvriteff.tar.gz') as tf:
         return tf.read_gzip('table3.dat', ['V-K', 'B-V', 'V-I', 'J-K', 'H-K', 'Teff'])
+
 
 def parse_spectra(data: Table) -> Table:
     """Parse the spectral types into the celestia.Sci format."""
@@ -73,6 +77,7 @@ def parse_spectra(data: Table) -> Table:
     sptypes = unique(data['SpType',])
     sptypes['CelSpec'] = parse_spectrum_vec(sptypes['SpType'])
     return join(data, sptypes)
+
 
 def estimate_magnitudes(data: Table) -> None:
     """Estimates magnitudes and color indices from G magnitude and BP-RP.
@@ -137,6 +142,7 @@ def estimate_magnitudes(data: Table) -> None:
         'Bmag', 'e_Bmag', 'e_Vmag', 'Jmag', 'e_Jmag', 'Hmag', 'e_Hmag', 'Kmag', 'e_Kmag',
     ])
 
+
 def estimate_temperatures(data: Table) -> None:
     """Estimate the temperature of stars."""
     ubvri_data = load_ubvri()
@@ -175,6 +181,7 @@ def estimate_temperatures(data: Table) -> None:
     data['teff_est'] = teffs / weights
     data['teff_est'].unit = u.K
 
+
 def estimate_spectra(data: Table) -> Table:
     """Estimate the spectral type of stars."""
     no_teff = data[data['teff_val'].mask]
@@ -201,19 +208,21 @@ def estimate_spectra(data: Table) -> Table:
     data['CelSpec'] = CEL_SPECS[np.digitize(data['teff_val'], TEFF_BINS)]
     return data
 
+
 def load_sao() -> Table:
     """Loads the SAO catalog."""
     print("Loading SAO")
 
-    with open(os.path.join('vizier', 'sao.readme'), 'r') as readme:
+    with (VIZIER_DIR/'sao.readme').open('r') as readme:
         reader = WorkaroundCDSReader('sao.dat', ['SAO', 'HD'], [np.int64, np.int64], readme)
 
-    with gzip.open(os.path.join('vizier', 'sao.dat.gz'), 'rt', encoding='ascii') as f:
+    with gzip.open(VIZIER_DIR/'sao.dat.gz', 'rt', encoding='ascii') as f:
         data = reader.read(f)
 
     data = unique(data.group_by('SAO'), keys=['HD'])
     data = unique(data.group_by('HD'), keys=['SAO'])
     return data
+
 
 def merge_all() -> Table:
     """Merges the HIP and TYC data."""
@@ -280,6 +289,7 @@ def merge_all() -> Table:
 
     return vstack([hip_data[hip_data['HD'].mask], hd_sao], join_type='exact')
 
+
 OBLIQUITY = np.radians(23.4392911)
 COS_OBLIQUITY = np.cos(OBLIQUITY)
 SIN_OBLIQUITY = np.sin(OBLIQUITY)
@@ -288,6 +298,7 @@ ROT_MATRIX = np.array([
     [0, COS_OBLIQUITY, SIN_OBLIQUITY],
     [0, -SIN_OBLIQUITY, COS_OBLIQUITY]
 ])
+
 
 def process_data() -> Table:
     """Processes the missing data values."""
@@ -344,10 +355,11 @@ def process_data() -> Table:
 
     return data
 
-def write_starsdat(data: Table, outfile: str) -> None:
+
+def write_starsdat(data: Table, outfile: Path) -> None:
     """Write the stars.dat file."""
     print('Writing stars.dat')
-    with open(outfile, 'wb') as f:
+    with outfile.open('wb') as f:
         f.write(struct.pack('<8sHL', b'CELSTARS', 0x0100, len(data)))
         print(f'  Writing {len(data)} records')
         fmt = struct.Struct('<L3fhH')
@@ -356,7 +368,8 @@ def write_starsdat(data: Table, outfile: str) -> None:
         ):
             f.write(fmt.pack(hip, x, y, z, int(round(vmag_abs*256)), celspec))
 
-def write_xindex(data: Table, field: str, outfile: str) -> None:
+
+def write_xindex(data: Table, field: str, outfile: Path) -> None:
     """Write a cross-index file."""
     print('Writing '+field+' cross-index')
 
@@ -366,20 +379,20 @@ def write_xindex(data: Table, field: str, outfile: str) -> None:
     data = unique(data.group_by([field, 'Comp', 'HIP']), keys=[field])
 
     print(f'  Writing {len(data)} records')
-    with open(outfile, 'wb') as f:
+    with outfile.open('wb') as f:
         f.write(struct.pack('<8sH', b'CELINDEX', 0x0100))
         fmt = struct.Struct('<2L')
         for hip, cat in zip(data['HIP'], data[field]):
             f.write(fmt.pack(cat, hip))
 
+
 def make_stardb() -> None:
     """Make the Celestia star database files."""
     data = process_data()
 
-    with contextlib.suppress(FileExistsError):
-        os.mkdir('output')
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    write_starsdat(data, os.path.join('output', 'stars.dat'))
+    write_starsdat(data, OUTPUT_DIR/'stars.dat')
 
     xindices = [
         ('HD', 'hdxindex.dat'),
@@ -387,11 +400,11 @@ def make_stardb() -> None:
     ]
 
     for fieldname, outfile in xindices:
-        write_xindex(data, fieldname, os.path.join('output', outfile))
+        write_xindex(data, fieldname, OUTPUT_DIR/outfile)
 
     print("Creating archive")
     archivename = f'celestia-gaia-stardb-{VERSION}'
     with ZipFile(f'{archivename}.zip', 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf:
         contents = ['stars.dat', 'hdxindex.dat', 'saoxindex.dat', 'LICENSE.txt', 'CREDITS.md']
         for f in contents:
-            zf.write(os.path.join('output', f), arcname=os.path.join(archivename, f))
+            zf.write(OUTPUT_DIR/f, arcname=Path(archivename)/f)

@@ -17,7 +17,6 @@
 
 """Routines for parsing the HIP data."""
 
-import os
 import warnings
 
 import astropy.io.ascii as io_ascii
@@ -28,24 +27,27 @@ from astropy.table import Table, join, unique
 from astropy.time import Time
 from erfa import ErfaWarning
 
+from .download_data import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
 from .parse_utils import open_cds_tarfile, read_gaia
+
 
 def load_gaia_hip() -> Table:
     """Load the Gaia DR2 HIP sources."""
     print('Loading Gaia DR2 sources for HIP')
 
     gaia = read_gaia(
-        os.path.join('gaia', 'gaiadr2_hip-result.csv'),
+        GAIA_DIR/'gaiadr2_hip-result.csv',
         'hip_id',
         extra_fields=['parallax', 'parallax_error'],
     )
     gaia.rename_column('hip_id', 'HIP')
     return gaia
 
+
 def load_xhip() -> Table:
     """Load the XHIP catalogue from the VizieR archive."""
     print('Loading XHIP')
-    with open_cds_tarfile(os.path.join('vizier', 'xhip.tar.gz')) as tf:
+    with open_cds_tarfile(VIZIER_DIR/'xhip.tar.gz') as tf:
         print('  Loading main catalog')
         hip_data = tf.read_gzip(
             'main.dat',
@@ -74,18 +76,20 @@ def load_xhip() -> Table:
         biblio_data.add_index('HIP')
         return join(hip_data, biblio_data, join_type='left', keys='HIP')
 
+
 def load_tyc2specnew() -> Table:
     """Load revised spectral types."""
     print("Loading revised TYC2 spectral types")
-    with open_cds_tarfile(os.path.join('vizier', 'tyc2specnew.tar.gz')) as tf:
+    with open_cds_tarfile(VIZIER_DIR/'tyc2specnew.tar.gz') as tf:
         data = tf.read('table2.dat', ['HIP', 'SpType1'])
         return data[data['SpType1'] != '']
+
 
 def load_sao() -> Table:
     """Load the SAO-HIP cross match."""
     print('Loading SAO-HIP cross match')
     data = io_ascii.read(
-        os.path.join('xmatch', 'sao_hip_xmatch.csv'),
+        XMATCH_DIR/'sao_hip_xmatch.csv',
         include_names=['HIP', 'SAO', 'angDist', 'delFlag'],
         format='csv',
     )
@@ -98,6 +102,7 @@ def load_sao() -> Table:
 
     data.add_index('HIP')
     return data
+
 
 def compute_distances(hip_data: Table, length_kpc: float=1.35) -> None:
     """Compute the distance using an exponentially-decreasing prior.
@@ -139,8 +144,10 @@ def compute_distances(hip_data: Table, length_kpc: float=1.35) -> None:
     hip_data['r_est'] = np.where(is_cluster_distance, hip_data['Dist'], parallax_distance)
     hip_data['r_est'].unit = u.pc
 
+
 HIP_TIME = Time('J1991.25')
 GAIA_TIME = Time('J2015.5')
+
 
 def update_coordinates(hip_data: Table) -> None:
     """Update the coordinates from J1991.25 to J2015.5 to match Gaia."""
@@ -163,6 +170,7 @@ def update_coordinates(hip_data: Table) -> None:
     hip_data['dec'] = coords.dec / u.deg
     hip_data['dec'].unit = u.deg
 
+
 def process_xhip() -> Table:
     """Processes the XHIP data."""
     xhip = load_xhip()
@@ -175,6 +183,7 @@ def process_xhip() -> Table:
     update_coordinates(xhip)
     xhip.remove_columns(['RAdeg', 'DEdeg', 'pmRA', 'pmDE', 'RV', 'Dist', 'e_Dist'])
     return xhip
+
 
 def process_hip() -> Table:
     """Process the Gaia and HIP data."""

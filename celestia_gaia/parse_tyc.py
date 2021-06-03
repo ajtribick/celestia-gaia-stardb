@@ -18,8 +18,8 @@
 """Routines for parsing the TYC2 data."""
 
 import gzip
-import os
 import tarfile
+from pathlib import PurePath
 from typing import Dict, IO, Tuple
 
 import astropy.io.ascii as io_ascii
@@ -27,11 +27,14 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
+from .download_data import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
 from .parse_utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
+
 
 def make_tyc(tyc1: int, tyc2: int, tyc3: int) -> int:
     """Build a synthetic HIP identifier from TYC parts."""
     return tyc1 + tyc2*10000 + tyc3*1000000000
+
 
 TYC_HD_ERRATA = {
     "add": [
@@ -91,15 +94,17 @@ TYC_HD_ERRATA = {
     ]
 }
 
+
 def parse_tyc_string(data: Table, src_column: str, dest_column: str='TYC') -> None:
     """Parse a TYC string into a synthetic HIP identifier."""
     tycs = np.array(np.char.split(data[src_column], '-').tolist()).astype(np.int64)
     data[dest_column] = make_tyc(tycs[:, 0], tycs[:, 1], tycs[:, 2])
     data.remove_column(src_column)
 
+
 def parse_tyc_cols(
     data: Table,
-    src_columns: Tuple[str, str, str]=('TYC1', 'TYC2', 'TYC3'),
+    src_columns: Tuple[str, str, str] = ('TYC1', 'TYC2', 'TYC3'),
     dest_column: str='TYC'
 ) -> None:
     """Convert TYC identifier components into a synthetic HIP identifier."""
@@ -108,27 +113,30 @@ def parse_tyc_cols(
     )
     data.remove_columns(src_columns)
 
+
 def load_gaia_tyc() -> Table:
     """Load the Gaia DR2 TYC2 sources."""
     print('Loading Gaia DR2 sources for TYC2')
 
     file_names = ['gaiadr2_tyc-result.csv', 'gaiadr2_tyc-result-extra.csv']
-    gaia = read_gaia([os.path.join('gaia', f) for f in file_names], 'tyc2_id')
+    gaia = read_gaia([GAIA_DIR/f for f in file_names], 'tyc2_id')
 
     parse_tyc_string(gaia, 'tyc2_id')
     gaia.add_index('TYC')
 
     return unique(gaia.group_by('TYC'), keys=['source_id'])
 
+
 def load_tyc_spec() -> Table:
     """Load the TYC2 spectral type catalogue."""
     print('Loading TYC2 spectral types')
-    with open_cds_tarfile(os.path.join('vizier', 'tyc2spec.tar.gz')) as tf:
+    with open_cds_tarfile(VIZIER_DIR/'tyc2spec.tar.gz') as tf:
         data = tf.read_gzip('catalog.dat', ['TYC1', 'TYC2', 'TYC3', 'SpType'])
 
     parse_tyc_cols(data)
     data.add_index('TYC')
     return data
+
 
 def _load_ascc_section(tf: TarCds, table: str) -> Table:
     print(f'  Loading {table}')
@@ -153,17 +161,18 @@ def _load_ascc_section(tf: TarCds, table: str) -> Table:
 
     return section
 
+
 def load_ascc() -> Table:
     """Load ASCC from VizieR archive."""
 
     print('Loading ASCC')
-    with open_cds_tarfile(os.path.join('vizier', 'ascc.tar.gz')) as tf:
+    with open_cds_tarfile(VIZIER_DIR/'ascc.tar.gz') as tf:
         data = None
         for data_file in tf.tf:
-            sections = os.path.split(data_file.name)
-            if (len(sections) != 2 or sections[0] != '.' or not sections[1].startswith('cc')):
+            path = PurePath(data_file.name)
+            if path.parent != PurePath('.') or not path.stem.startswith('cc'):
                 continue
-            section_data = _load_ascc_section(tf, os.path.splitext(sections[1])[0])
+            section_data = _load_ascc_section(tf, path.stem)
             if data is None:
                 data = section_data
             else:
@@ -174,10 +183,11 @@ def load_ascc() -> Table:
     data.add_index('TYC')
     return data
 
+
 def load_tyc_hd() -> Table:
     """Load the Tycho-HD cross index."""
     print('Loading TYC-HD cross index')
-    with open_cds_tarfile(os.path.join('vizier', 'tyc2hd.tar.gz')) as tf:
+    with open_cds_tarfile(VIZIER_DIR/'tyc2hd.tar.gz') as tf:
         data = tf.read_gzip('tyc2_hd.dat', ['TYC1', 'TYC2', 'TYC3', 'HD'])
 
     parse_tyc_cols(data)
@@ -195,6 +205,7 @@ def load_tyc_hd() -> Table:
     data = unique(data.group_by('TYC'), keys='HD')
 
     return data
+
 
 class TYCTeffReader(WorkaroundCDSReader):
     """Custom CDS loader for the TYC Teff table to reduce memory usage."""
@@ -229,10 +240,11 @@ class TYCTeffReader(WorkaroundCDSReader):
 
         return False
 
+
 def load_tyc_teff() -> Table:
     """Load the Tycho-2 effective temperatures."""
     print('Loading TYC2 effective temperatures')
-    with tarfile.open(os.path.join('vizier', 'tyc2teff.tar.gz'), 'r:gz') as tf:
+    with tarfile.open(VIZIER_DIR/'tyc2teff.tar.gz', 'r:gz') as tf:
         with tf.extractfile('./ReadMe') as readme:
             reader = TYCTeffReader(readme)
 
@@ -242,6 +254,7 @@ def load_tyc_teff() -> Table:
         data['teff_val'].unit = u.K
         data.add_index('TYC')
         return unique(data, keys=['TYC'])
+
 
 def load_sao() -> Table:
     """Load the SAO-TYC2 cross match."""
@@ -254,7 +267,7 @@ def load_sao() -> Table:
     data = vstack(
         [
             io_ascii.read(
-                os.path.join('xmatch', f),
+                XMATCH_DIR/f,
                 include_names=['SAO', 'TYC1', 'TYC2', 'TYC3', 'angDist', 'delFlag'],
                 format='csv',
                 converters={'delFlag': [io_ascii.convert_numpy(np.str)]},
@@ -273,6 +286,7 @@ def load_sao() -> Table:
 
     data.add_index('TYC')
     return data
+
 
 def merge_tables() -> Table:
     """Merges the tables."""
@@ -306,6 +320,7 @@ def merge_tables() -> Table:
 
     data = join(data, load_sao(), keys=['TYC'], join_type='left')
     return data
+
 
 def process_tyc() -> Table:
     """Processes the TYC data."""

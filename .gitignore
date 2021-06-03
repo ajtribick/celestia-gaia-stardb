@@ -1,10 +1,7 @@
 .vscode
-gaia
-output/*.dat
+data
 myenv
-simbad
-vizier
-xmatch
+output/*.dat
 *.kate-swp
 *.pyc
 /celestia*.zip
