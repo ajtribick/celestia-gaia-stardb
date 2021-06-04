@@ -1,5 +1,5 @@
 # gaia-stardb: Processing Gaia DR2 for celestia.Sci/Celestia
-# Copyright (C) 2019–2020  Andrew Tribick
+# Copyright (C) 2019–2021  Andrew Tribick
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
