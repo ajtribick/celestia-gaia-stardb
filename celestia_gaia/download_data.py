@@ -31,12 +31,8 @@ from astroquery.gaia import Gaia
 from astroquery.utils.tap import Tap
 from astroquery.xmatch import XMatch
 
+from .directories import GAIA_DIR, SIMBAD_DIR, VIZIER_DIR, XMATCH_DIR
 from .parse_utils import open_cds_tarfile
-
-GAIA_DIR = Path('data', 'gaiadr2')
-SIMBAD_DIR = Path('data', 'simbad')
-VIZIER_DIR = Path('data', 'vizier')
-XMATCH_DIR = Path('data', 'xmatch')
 
 
 def yesno(prompt: str, default: bool=False) -> bool:

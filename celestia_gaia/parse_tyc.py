@@ -27,7 +27,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from .download_data import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
 from .parse_utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
 
 

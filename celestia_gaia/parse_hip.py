@@ -27,7 +27,7 @@ from astropy.table import Table, join, unique
 from astropy.time import Time
 from erfa import ErfaWarning
 
-from .download_data import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
 from .parse_utils import open_cds_tarfile, read_gaia
 
 

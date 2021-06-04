@@ -26,7 +26,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from .download_data import VIZIER_DIR
+from .directories import VIZIER_DIR
 from .parse_hip import process_hip
 from .parse_tyc import process_tyc
 from .parse_utils import WorkaroundCDSReader, open_cds_tarfile
