@@ -237,74 +237,55 @@ WHERE
     """
 
 
+def _run_query(query: str, output_file: Path) -> None:
+    job = Gaia.launch_job_async(
+        query,
+        dump_to_file=True,
+        output_file=output_file,
+        output_format='votable',
+        verbose=False,
+        background=True,
+    )
+
+    print(f'  Launched job id {job.jobid}')
+    delay=10
+    while True:
+        phase = job.get_phase(update=True)
+        if job.is_finished():
+            break
+        print(f'  {phase}, waiting {delay} seconds')
+        time.sleep(delay)
+        delay = min(delay+10, 60)
+
+    print(f'  {phase}')
+    if phase != 'COMPLETED':
+        print(f'  {phase}: {job.get_error()}')
+        raise RuntimeError('Failed to download Gaia data')
+
+    job.save_results()
+    Gaia.remove_jobs([job.jobid])
+
+
 def download_gaia_hip(ranges: MultiRange, chunk_size: int = 5000) -> None:
     """Download HIP data from the Gaia archive."""
-    for subrange in ranges.chunk_ranges(chunk_size):
-        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{subrange.begin:06}-{subrange.end:06}.votable'
+    for section in ranges.chunk_ranges(chunk_size):
+        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{section.begin:06}-{section.end:06}.votable'
 
-        query = _hip_query(subrange.begin, subrange.end)
-        print(f'Querying HIP stars in range {subrange.begin} to {subrange.end}')
-        job = Gaia.launch_job_async(
-            query,
-            dump_to_file=True,
-            output_file=hip_file,
-            output_format='votable',
-            verbose=False,
-            background=True,
-        )
-
-        print(f'  Launched job id {job.jobid}')
-        delay=10
-        while True:
-            phase = job.get_phase(update=True)
-            if job.is_finished():
-                break
-            print(f'  {phase}, waiting {delay} seconds')
-            time.sleep(delay)
-            delay = min(delay+10, 60)
-
-        print(f'  {phase}')
-        if phase != 'COMPLETED':
-            raise RuntimeError('Failed to download Gaia data')
-
-        job.save_results()
-        Gaia.remove_jobs([job.jobid])
+        query = _hip_query(section.begin, section.end)
+        print(f'Querying HIP stars in range {section.begin} to {section.end}')
+        _run_query(query, hip_file)
 
 
 def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 20) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
-    for subrange in ranges.chunk_ranges(chunk_size):
-        hip_file = (
-            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{subrange.begin:04}-{subrange.end:04}.votable'
+    for section in ranges.chunk_ranges(chunk_size):
+        tyc_file = (
+            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{section.begin:04}-{section.end:04}.votable'
         )
 
-        query = _tyc_query(subrange.begin, subrange.end)
-        print(f'Querying TYC/TDSC stars in regions {subrange.begin} to {subrange.end}')
-        job = Gaia.launch_job_async(
-            query,
-            dump_to_file=True,
-            output_file=hip_file,
-            output_format='votable',
-            verbose=False,
-            background=True,
-        )
-
-        print(f'  Launched job id {job.jobid}')
-        delay=10
-        while True:
-            phase = job.get_phase(update=True)
-            if job.is_finished():
-                break
-            print(f'  {phase}, waiting {delay} seconds')
-            time.sleep(delay)
-            delay = min(delay+10, 60)
-
-        print(f'  {phase}')
-        if phase != 'COMPLETED':
-            raise RuntimeError('Failed to download Gaia data')
-
-        job.save_results()
-        Gaia.remove_jobs([job.jobid])
+        query = _tyc_query(section.begin, section.end)
+        print(f'Querying TYC/TDSC stars in regions {section.begin} to {section.end}')
+        _run_query(query, tyc_file)
 
 
 _RANGE_PATTERN = re.compile(r'-([0-9]+)-([0-9]+)$')
