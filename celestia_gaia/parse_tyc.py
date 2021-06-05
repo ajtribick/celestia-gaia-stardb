@@ -27,7 +27,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from .directories import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import GAIA_DR2_DIR, VIZIER_DIR, XMATCH_DIR
 from .parse_utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
 
 
@@ -119,7 +119,7 @@ def load_gaia_tyc() -> Table:
     print('Loading Gaia DR2 sources for TYC2')
 
     file_names = ['gaiadr2_tyc-result.csv', 'gaiadr2_tyc-result-extra.csv']
-    gaia = read_gaia([GAIA_DIR/f for f in file_names], 'tyc2_id')
+    gaia = read_gaia([GAIA_DR2_DIR/f for f in file_names], 'tyc2_id')
 
     parse_tyc_string(gaia, 'tyc2_id')
     gaia.add_index('TYC')

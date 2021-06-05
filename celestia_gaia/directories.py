@@ -20,7 +20,7 @@
 from pathlib import Path
 
 
-GAIA_DIR = Path('data', 'gaiadr2')
-SIMBAD_DIR = Path('data', 'simbad')
+GAIA_DR2_DIR = Path('data', 'gaiadr2')
+GAIA_EDR3_DIR = Path('data', 'gaiaedr3')
 VIZIER_DIR = Path('data', 'vizier')
 XMATCH_DIR = Path('data', 'xmatch')

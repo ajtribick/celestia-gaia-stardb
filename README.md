@@ -1,4 +1,4 @@
-Gaia DR2 for celestia.Sci/Celestia
+Gaia EDR3 for celestia.Sci/Celestia
 ==================================
 
 This repository contains Python scripts to generate a celestia.Sci/Celestia
@@ -63,28 +63,16 @@ steps below **before** you begin.
 
 ### Source catalogues
 
-- *Gaia* Data Release 2 (https://gea.esac.esa.int/archive/)
+- *Gaia* Early Data Release 3 (https://gea.esac.esa.int/archive/)
     - *Gaia* Collaboration et al. (2016), A&A 595, id.A1, "The *Gaia* mission"
-    - *Gaia* Collaboration et al. (2018), A&A 616, id.A1, "*Gaia* Data
-      Release 2. Summary of the contents and survey properties"
-    - Andrae et al. (2018), A&A 616, id.A8, "*Gaia* Data Release 2. First
-      stellar parameters from Apsis"
-    - Evans et al. (2018), A&A 616, id.A4 "*Gaia Data Release 2. Photometric
-      content and validation"
-    - Marrese et al. (2018), A&A 621, id.A144, "*Gaia* Data Release 2.
-      Cross-match with external catalogues: algorithms and results"
-
-- *Gaia* Data Release 2 Geometric Distances
-  (http://www.mpia.de/~calj/gdr2_distances/main.html)
-
-  Bailer-Jones et al. (2018), AJ 156(2), id.58 "Estimating Distance from
-  Parallaxes. IV. Distances to 1.33 Billion Stars in *Gaia* Data Release 2"
-
-- Binarity of Hipparcos stars from Gaia pm anomaly
-  (https://cdsarc.unistra.fr/viz-bin/cat/J/A%2bA/623/A72)
-
-  Kervella et al. (2019), A&A 623, id.A72 "Stellar and substellar companions
-  of nearby stars from Gaia DR2. Binarity from proper motion anomaly"
+    - *Gaia* Collaboration et al. (2021), A&A 649, id.A1, "*Gaia* Early Data
+      Release 3. Summary of the contents and survey properties"
+    - *Gaia* Collaboration et al. (2021), A&A forthcoming, "Erratum: *Gaia*
+      Early Data Release 3. Summary of the contents and survey properties"
+    - Lindegren et al. (2021), A&A 649, id.A2, "*Gaia* Early Data Relese 3.
+      The astrometric solution"
+    - Riello et al. (2021), A&A 649. id.A3, "*Gaia* Early Data Release 3.
+      Photometric content and validation"
 
 - Extended Hipparcos Compilation (XHIP)
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/V/137D)
@@ -125,6 +113,31 @@ steps below **before** you begin.
 - SAO Star Catalog J2000 (http://cdsarc.u-strasbg.fr/viz-bin/cat/I/131A)
 
   SAO Staff, "Smithsonian Astrophysical Observatory Star Catalog (1990)"
+
+### Source catalogues used in earlier versions
+
+- *Gaia* Data Release 2 (https://gea.esac.esa.int/archive/)
+    - *Gaia* Collaboration et al. (2016), A&A 595, id.A1, "The *Gaia* mission"
+    - *Gaia* Collaboration et al. (2018), A&A 616, id.A1, "*Gaia* Data
+      Release 2. Summary of the contents and survey properties"
+    - Andrae et al. (2018), A&A 616, id.A8, "*Gaia* Data Release 2. First
+      stellar parameters from Apsis"
+    - Evans et al. (2018), A&A 616, id.A4 "*Gaia Data Release 2. Photometric
+      content and validation"
+    - Marrese et al. (2018), A&A 621, id.A144, "*Gaia* Data Release 2.
+      Cross-match with external catalogues: algorithms and results"
+
+- *Gaia* Data Release 2 Geometric Distances
+  (http://www.mpia.de/~calj/gdr2_distances/main.html)
+
+  Bailer-Jones et al. (2018), AJ 156(2), id.58 "Estimating Distance from
+  Parallaxes. IV. Distances to 1.33 Billion Stars in *Gaia* Data Release 2"
+
+- Binarity of Hipparcos stars from Gaia pm anomaly
+  (https://cdsarc.unistra.fr/viz-bin/cat/J/A%2bA/623/A72)
+
+  Kervella et al. (2019), A&A 623, id.A72 "Stellar and substellar companions
+  of nearby stars from Gaia DR2. Binarity from proper motion anomaly"
 
 ### Additional catalogues of interest
 
@@ -176,6 +189,9 @@ steps below **before** you begin.
 
 - Astropy Collaboration et al. (2018), AJ 156(3), id.123 "The Astropy Project:
   Building an Open-science Project and Status of the v2.0 Core Package"
+
+- Brandt (2018), ApJSS 239(2), id.31 "The *Hipparcos*-*Gaia* Catalog of
+  Accelerations"
 
 ### Databases
 

@@ -17,25 +17,19 @@
 
 """Routines for downloading the data files."""
 
-from pathlib import Path, PurePath
-from typing import Union, cast
-from zipfile import ZipFile
+import time
+from pathlib import Path
 
 import astropy.io.ascii as io_ascii
-import astropy.io.votable as votable
-import numpy as np
 import requests
 from astropy import units
-from astropy.table import Table, join, unique, vstack
 from astroquery.gaia import Gaia
-from astroquery.utils.tap import Tap
 from astroquery.xmatch import XMatch
 
-from .directories import GAIA_DIR, SIMBAD_DIR, VIZIER_DIR, XMATCH_DIR
-from .parse_utils import open_cds_tarfile
+from .directories import GAIA_DR2_DIR, GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
 
 
-def yesno(prompt: str, default: bool=False) -> bool:
+def _yesno(prompt: str, default: bool=False) -> bool:
     """Prompt the user for yes/no input."""
     if default:
         new_prompt = f'{prompt} (Y/n): '
@@ -52,19 +46,19 @@ def yesno(prompt: str, default: bool=False) -> bool:
             return False
 
 
-def proceed_checkfile(path: Path) -> bool:
+def _proceed_checkfile(path: Path) -> bool:
     """Check if a file exists, if so prompt the user if they want to replace it."""
     if path.exists():
-        if yesno(f'{path} already exists, replace?'):
+        if _yesno(f'{path} already exists, replace?'):
             path.unlink()
         else:
             return False
     return True
 
 
-def download_file(path: Path, url: str) -> bool:
+def _download_file(path: Path, url: str) -> bool:
     """Download a file using requests."""
-    if not proceed_checkfile(path):
+    if not _proceed_checkfile(path):
         return
 
     print(f'Downloading {url}')
@@ -78,194 +72,260 @@ def download_file(path: Path, url: str) -> bool:
 
 # --- GAIA DATA DOWNLOAD ---
 
-def download_gaia_data(colname: str, xindex: Union[str, Table], outfile_path: Path) -> None:
-    """Query and download Gaia data."""
-
-    if isinstance(xindex, str):
-        xindex_name = cast(str, xindex)
-        upload_resource = None
-        upload_table_name = None
-    else:
-        xindex_name = "TAP_UPLOAD.cel_xindex"
-        upload_resource = cast(Table, xindex)
-        upload_table_name = 'cel_xindex'
-
-    query = f"""SELECT
-    x.source_id, x.original_ext_source_id AS {colname},
-    g.ra, g.dec, g.parallax, g.parallax_error, g.pmra,
-    g.pmdec, g.phot_g_mean_mag, g.bp_rp, g.teff_val,
-    d.r_est, d.r_lo, d.r_hi
-FROM
-    {xindex_name} x
-    JOIN gaiadr2.gaia_source g ON g.source_id = x.source_id
-    LEFT JOIN external.gaiadr2_geometric_distance d ON d.source_id = x.source_id"""
-
-    print(query)
-    job = Gaia.launch_job_async(
-        query,
-        upload_resource=upload_resource,
-        upload_table_name=upload_table_name,
-        dump_to_file=True,
-        output_file=outfile_path,
-        output_format='csv',
-    )
-    try:
-        job.save_results()
-    finally:
-        Gaia.remove_jobs(job.jobid)
+_HIP_MAX = 120404
+_TYC_MAX = 9537
 
 
-CONESEARCH_URL = (
-    'https://www.cosmos.esa.int/documents/29201/1769576/Hipparcos2GaiaDR2coneSearch.zip'
-)
-
-
-def download_gaia_hip() -> None:
-    """Download HIP data from the Gaia archive."""
-    hip_file = GAIA_DIR/'gaiadr2_hip-result.csv'
-    if not proceed_checkfile(hip_file):
-        return
-
-    conesearch_file = GAIA_DIR/'hip2conesearch.zip'
-    if proceed_checkfile(conesearch_file):
-        download_file(conesearch_file, CONESEARCH_URL)
-
-    # the gaiadr2.hipparcos2_best_neighbour table misses a large number of HIP stars that are
-    # actually present, so use the mapping from Kervella et al. (2019) "Binarity of Hipparcos
-    # stars from Gaia pm anomaly" instead.
-
-    with open_cds_tarfile(VIZIER_DIR/'hipgpma.tar.gz') as tf:
-        hip_map = unique(tf.read_gzip('hipgpma.dat', ['HIP', 'GDR2']))
-
-    with ZipFile(conesearch_file, 'r') as csz:
-        with csz.open('Hipparcos2GaiaDR2coneSearch.csv', 'r') as f:
-            cone_map = io_ascii.read(
-                f, format='csv', names=['HIP', 'GDR2', 'dist'],
-                include_names=['HIP', 'GDR2'],
+def _hip_query(start: int, end: int) -> str:
+    return f"""SELECT
+    hip, hip2_plx, hip2_e_plx, hip2_ra, hip2_dec, hp_mag,
+    source_id, ra, dec, parallax, parallax_error,
+    pmra, pmra_error, pmdec, pmdec_error,
+    IF_THEN_ELSE(
+        bp_rp > -20,
+        TO_REAL(CASE_CONDITION(
+            phot_g_mean_mag - 2.5*LOG10(
+                1.00525 - 0.02323*GREATEST(0.25, LEAST(bp_rp, 3))
+                + 0.01740*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
+                - 0.00253*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
+            ),
+            astrometric_params_solved = 31,
+            phot_g_mean_mag,
+            phot_g_mean_mag < 13,
+            phot_g_mean_mag,
+            phot_g_mean_mag < 16,
+            phot_g_mean_mag - 2.5*LOG10(
+                1.00876 - 0.02540*GREATEST(0.25, LEAST(bp_rp, 3))
+                + 0.01747*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
+                - 0.00277*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
             )
-
-    cone_map = unique(cone_map)
-
-    hip_map = join(hip_map, cone_map, join_type='outer', keys='HIP', table_names=['pm', 'cone'])
-    hip_map['GDR2'] = hip_map['GDR2_pm'].filled(hip_map['GDR2_cone'])
-    hip_map.remove_columns(['GDR2_pm', 'GDR2_cone'])
-    hip_map.rename_column('HIP', 'original_ext_source_id')
-    hip_map.rename_column('GDR2', 'source_id')
-
-    download_gaia_data('hip_id', hip_map, hip_file)
-
-
-def _load_gaia_tyc_ids(path: Path) -> Table:
-    with path.open('r') as f:
-        header = f.readline().split(',')
-        col_idx = header.index('tyc2_id')
-        tyc1 = []
-        tyc2 = []
-        tyc3 = []
-        for line in f:
-            try:
-                tyc2_id = line.split(',')[col_idx]
-            except IndexError:
-                continue
-
-            tyc = tyc2_id.split('-')
-            tyc1.append(int(tyc[0]))
-            tyc2.append(int(tyc[1]))
-            tyc3.append(int(tyc[2]))
-
-        return Table([tyc1, tyc2, tyc3], names=['TYC1','TYC2','TYC3'], dtype=('i4', 'i4', 'i4'))
-
-
-def _load_ascc_tyc_ids(filename: Path) -> Table:
-    data = None
-    with open_cds_tarfile(filename) as tf:
-        for data_file in tf.tf:
-            path = PurePath(data_file.name)
-            if path.parent != PurePath('.') or not path.stem.startswith('cc'):
-                continue
-
-            section_data = tf.read_gzip(
-                path.stem, ['TYC1', 'TYC2', 'TYC3'], readme_name='cc*.dat',
-            )
-
-            if data is None:
-                data = section_data
-            else:
-                data = vstack([data, section_data], join_type='exact')
-
-    return data
-
-
-def get_missing_tyc_ids(tyc_file: Path, ascc_file: Path) -> Table:
-    """Finds the ASCC TYC ids that are not present in Gaia cross-match."""
-    print("Finding missing TYC ids in ASCC")
-    t_asc = unique(_load_ascc_tyc_ids(ascc_file))
-    t_gai = _load_gaia_tyc_ids(tyc_file)
-
-    t_gai['in_gaia'] = True
-
-    t_mgd = join(t_asc, t_gai, join_type='left')
-    t_mgd['in_gaia'] = t_mgd['in_gaia'].filled(False)
-
-    t_missing = t_mgd[np.logical_not(t_mgd['in_gaia'])]
-    t_missing = t_missing[t_missing['TYC1'] != 0] # remove invalid entries
-
-    return Table([[f"TYC {t['TYC1']}-{t['TYC2']}-{t['TYC3']}" for t in t_missing]], names=['id'])
-
-
-def download_gaia_tyc() -> None:
-    """Download TYC data from the Gaia archive."""
-
-    tyc_file = GAIA_DIR/'gaiadr2_tyc-result.csv'
-    if proceed_checkfile(tyc_file):
-        download_gaia_data('tyc2_id', 'gaiadr2.tycho2_best_neighbour', tyc_file)
-
-    # Use SIMBAD to fill in some of the missing entries
-    SIMBAD_DIR.mkdir(parents=True, exist_ok=True)
-
-    simbad_file = SIMBAD_DIR/'tyc-gaia.votable'
-    if proceed_checkfile(simbad_file):
-        ascc_file = VIZIER_DIR/'ascc.tar.gz'
-        missing_ids = get_missing_tyc_ids(tyc_file, ascc_file)
-        print("Querying SIMBAD for Gaia DR2 identifiers")
-        simbad = Tap(url='http://simbad.u-strasbg.fr:80/simbad/sim-tap')
-        query = """SELECT
-    id1.id tyc_id, id2.id gaia_id
+        )),
+        phot_g_mean_mag
+    ) AS phot_g_mean_mag,
+    bp_rp, ref_epoch,
+    r_med_geo, r_med_photogeo,
+    delta_mag,
+    DISTANCE(hip2_pos, gaia_prop_pos)*3600 AS dist,
+    CASE_CONDITION(
+        delta_ra,
+        delta_ra < -180, delta_ra + 360,
+        delta_ra > 180, delta_ra - 360
+    )*3600000/(ref_epoch-1991.25) AS calc_pmra,
+    delta_dec*3600000/(ref_epoch-1991.25) AS calc_pmdec
 FROM
-    TAP_UPLOAD.missing_tyc src
-    JOIN IDENT id1 ON id1.id = src.id
-    JOIN IDENT id2 ON id2.oidref = id1.oidref
+    (
+        SELECT
+            hip2.hip, hip2.plx AS hip2_plx, hip2.e_plx AS hip2_e_plx,
+            hip2.ra AS hip2_ra, hip2.dec AS hip2_dec, hip2.hp_mag,
+            gaia.source_id, gaia.ra, gaia.dec, gaia.parallax, gaia.parallax_error,
+            gaia.pmra, gaia.pmra_error, gaia.pmdec, gaia.pmdec_error,
+            gaia.phot_g_mean_mag, gaia.bp_rp,
+            gaia.ref_epoch, gaia.astrometric_params_solved,
+            dist.r_med_geo, dist.r_med_photogeo,
+            hip2.hp_mag-(
+                0.91*COALESCE(gaia.phot_bp_mean_mag, gaia.phot_g_mean_mag)
+                +0.09*COALESCE(gaia.phot_rp_mean_mag, gaia.phot_g_mean_mag)
+            ) AS delta_mag,
+            POINT('ICRS', hip2.ra, hip2.dec) AS hip2_pos,
+            EPOCH_PROP_POS(
+                gaia.ra, gaia.dec, gaia.parallax, gaia.pmra, gaia.pmdec,
+                COALESCE(gaia.dr2_radial_velocity, 0),
+                gaia.ref_epoch, 1991.25
+            ) AS gaia_prop_pos,
+            gaia.ra - hip2.ra AS delta_ra,
+            gaia.dec - hip2.dec AS delta_dec
+        FROM
+            public.hipparcos_newreduction hip2
+            JOIN gaiaedr3.gaia_source gaia ON 1=CONTAINS(
+                POINT('ICRS', hip2.ra, hip2.dec),
+                CIRCLE('ICRS', gaia.ra, gaia.dec, 0.05)
+            )
+            LEFT JOIN external.gaiaedr3_distance dist ON dist.source_id = gaia.source_id
+        WHERE
+            hip2.hip BETWEEN {start} AND {end}
+    ) m
 WHERE
-    id2.id LIKE 'Gaia DR2 %'"""
-        print(query)
-        job = simbad.launch_job_async(
+    phot_g_mean_mag <= 13.7
+    OR delta_mag BETWEEN -1 AND 0.5
+    OR DISTANCE(hip2_pos, gaia_prop_pos) < 0.00027777777777777778
+    """
+
+
+def _tyc_query(start: int, end: int) -> str:
+    id_start = start * 1000000
+    id_end = (end+1) * 1000000 - 1
+    return f"""SELECT
+    tyc1, tyc2, tyc3, hip, cmp,
+    tyc2_ra, tyc2_dec, tyc2_epoch, vt_mag, bt_mag,
+    source_id, ra, dec, parallax, parallax_error,
+    pmra, pmra_error, pmdec, pmdec_error,
+    IF_THEN_ELSE(
+        bp_rp > -20,
+        TO_REAL(CASE_CONDITION(
+            phot_g_mean_mag - 2.5*LOG10(
+                1.00525 - 0.02323*GREATEST(0.25, LEAST(bp_rp, 3))
+                + 0.01740*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
+                - 0.00253*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
+            ),
+            astrometric_params_solved = 31,
+            phot_g_mean_mag,
+            phot_g_mean_mag < 13,
+            phot_g_mean_mag,
+            phot_g_mean_mag < 16,
+            phot_g_mean_mag - 2.5*LOG10(
+                1.00876 - 0.02540*GREATEST(0.25, LEAST(bp_rp, 3))
+                + 0.01747*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
+                - 0.00277*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
+            )
+        )),
+        phot_g_mean_mag
+    ) AS phot_g_mean_mag,
+    bp_rp, ref_epoch,
+    r_med_geo, r_med_photogeo,
+    delta_mag,
+    DISTANCE(tyc2_pos, gaia_prop_pos)*3600 AS dist,
+    CASE_CONDITION(
+        delta_ra,
+        delta_ra < -180, delta_ra + 360,
+        delta_ra > 180, delta_ra - 360
+    )*3600000/(ref_epoch-tyc2_epoch) AS calc_pmra,
+    delta_dec*3600000/(ref_epoch-tyc2_epoch) AS calc_pmdec
+FROM
+    (
+        SELECT
+            TO_INTEGER(tyc2.tyc1) AS tyc1,
+            TO_INTEGER(tyc2.tyc2) AS tyc2,
+            TO_INTEGER(tyc2.tyc3) AS tyc3,
+            tyc2.ra_deg AS tyc2_ra, tyc2.de_deg AS tyc2_dec,
+            0.5*(tyc2.ep_ra1990 + tyc2.ep_de1990)+1990 AS tyc2_epoch,
+            tyc2.vt_mag, tyc2.bt_mag, tyc2.hip, tyc2.cmp,
+            gaia.source_id, gaia.ra, gaia.dec, gaia.parallax, gaia.parallax_error,
+            gaia.pmra, gaia.pmra_error, gaia.pmdec, gaia.pmdec_error,
+            gaia.phot_g_mean_mag, gaia.bp_rp,
+            gaia.ref_epoch, gaia.astrometric_params_solved,
+            dist.r_med_geo, dist.r_med_photogeo,
+            (
+                0.99*COALESCE(tyc2.vt_mag, tyc2.bt_mag)
+                +0.01*COALESCE(tyc2.bt_mag, tyc2.vt_mag)
+            )-(
+                0.91*COALESCE(gaia.phot_bp_mean_mag, gaia.phot_g_mean_mag)
+                +0.09*COALESCE(gaia.phot_rp_mean_mag, gaia.phot_g_mean_mag)
+            ) AS delta_mag,
+            POINT('ICRS', tyc2.ra, tyc2.dec) AS tyc2_pos,
+            EPOCH_PROP_POS(
+                gaia.ra, gaia.dec, gaia.parallax, gaia.pmra, gaia.pmdec,
+                COALESCE(gaia.dr2_radial_velocity, 0),
+                gaia.ref_epoch, 0.5*(tyc2.ep_ra1990 + tyc2.ep_de1990)+1990
+            ) AS gaia_prop_pos,
+            gaia.ra - tyc2.ra AS delta_ra,
+            gaia.dec - tyc2.dec AS delta_dec
+        FROM
+            gaiaedr3.tycho2tdsc_merge tyc2
+            JOIN gaiaedr3.gaia_source gaia ON 1=CONTAINS(
+                POINT('ICRS', tyc2.ra, tyc2.dec),
+                CIRCLE('ICRS', gaia.ra, gaia.dec, 0.05)
+            )
+            LEFT JOIN external.gaiaedr3_distance dist ON dist.source_id = gaia.source_id
+        WHERE
+            tyc2.id_tycho BETWEEN {id_start} AND {id_end}
+    ) m
+WHERE
+    delta_mag BETWEEN -1 AND 0.5
+    OR DISTANCE(tyc2_pos, gaia_prop_pos) < 0.00027777777777777778
+    """
+
+def download_gaia_hip(
+    chunk_size: int = 5000, *, begin_section: int = 0, begin_at: int = 1
+) -> None:
+    """Download HIP data from the Gaia archive."""
+
+    section = begin_section
+    start = begin_at
+    end = begin_at+chunk_size-1
+    while start <= _HIP_MAX:
+        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-part{section:02}.votable'
+
+        query = _hip_query(start, end)
+        print(f'Querying HIP stars in range {start} to {end}')
+        job = Gaia.launch_job_async(
             query,
-            upload_resource=missing_ids,
-            upload_table_name='missing_tyc',
-            output_file=simbad_file,
-            output_format='votable',
             dump_to_file=True,
+            output_file=hip_file,
+            output_format='votable',
+            verbose=False,
+            background=True,
         )
+
+        print(f'  Launched job id {job.jobid}')
+        delay=10
+        while True:
+            phase = job.get_phase(update=True)
+            if job.is_finished():
+                break
+            print(f'  {phase}, waiting {delay} seconds')
+            time.sleep(delay)
+            delay = min(delay+10, 60)
+
+        print(f'  {phase}')
+        if phase != 'COMPLETED':
+            raise RuntimeError('Failed to download Gaia data')
+
         job.save_results()
+        Gaia.remove_jobs([job.jobid])
 
-    tyc2_file = GAIA_DIR/'gaiadr2_tyc-result-extra.csv'
-    if proceed_checkfile(tyc2_file):
-        missing_ids = votable.parse(simbad_file).resources[0].tables[0].to_table()
-        missing_ids['tyc_id'] = [
-            m[m.rfind(' ')+1:] for m in missing_ids['tyc_id'].astype('U')
-        ]
-        missing_ids.rename_column('tyc_id', 'original_ext_source_id')
-        missing_ids['gaia_id'] = [
-            int(m[m.rfind(' ')+1:]) for m in missing_ids['gaia_id'].astype('U')
-        ]
-        missing_ids.rename_column('gaia_id', 'source_id')
+        section += 1
+        start = end+1
+        end = min(end+chunk_size, _HIP_MAX)
 
-        download_gaia_data('tyc2_id', missing_ids, tyc2_file)
+
+def download_gaia_tyc(
+    chunk_size = 20, *, begin_section: int = 0, begin_at = 1
+) -> None:
+    """Download TYC/TDSC data from the Gaia archive."""
+
+    section = begin_section
+    start = begin_at
+    end = begin_at+chunk_size-1
+    while start <= _TYC_MAX:
+        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{section:02}.votable'
+
+        query = _tyc_query(start, end)
+        print(f'Querying TYC/TDSC stars in regions {start} to {end}')
+        job = Gaia.launch_job_async(
+            query,
+            dump_to_file=True,
+            output_file=hip_file,
+            output_format='votable',
+            verbose=False,
+            background=True,
+        )
+
+        print(f'  Launched job id {job.jobid}')
+        delay=10
+        while True:
+            phase = job.get_phase(update=True)
+            if job.is_finished():
+                break
+            print(f'  {phase}, waiting {delay} seconds')
+            time.sleep(delay)
+            delay = min(delay+10, 60)
+
+        print(f'  {phase}')
+        if phase != 'COMPLETED':
+            raise RuntimeError('Failed to download Gaia data')
+
+        job.save_results()
+        Gaia.remove_jobs([job.jobid])
+
+        section += 1
+        start = end+1
+        end = min(end+chunk_size, _HIP_MAX)
 
 
 def download_gaia() -> None:
     """Download data from the Gaia archive."""
-    GAIA_DIR.mkdir(parents=True, exist_ok=True)
+    GAIA_DR2_DIR.mkdir(parents=True, exist_ok=True)
+    GAIA_EDR3_DIR.mkdir(parents=True, exist_ok=True)
 
     download_gaia_hip()
     download_gaia_tyc()
@@ -275,7 +335,7 @@ def download_gaia() -> None:
 
 def download_xmatch(cat1: str, cat2: str, path: Path) -> None:
     """Download a cross-match from VizieR."""
-    if not proceed_checkfile(path):
+    if not _proceed_checkfile(path):
         return
 
     result = XMatch.query(
@@ -322,4 +382,4 @@ def download_vizier() -> None:
     ]
 
     for file_name, url in files_urls:
-        download_file(VIZIER_DIR/file_name, url)
+        _download_file(VIZIER_DIR/file_name, url)

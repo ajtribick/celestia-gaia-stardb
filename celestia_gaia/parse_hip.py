@@ -27,7 +27,7 @@ from astropy.table import Table, join, unique
 from astropy.time import Time
 from erfa import ErfaWarning
 
-from .directories import GAIA_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import GAIA_DR2_DIR, VIZIER_DIR, XMATCH_DIR
 from .parse_utils import open_cds_tarfile, read_gaia
 
 
@@ -36,7 +36,7 @@ def load_gaia_hip() -> Table:
     print('Loading Gaia DR2 sources for HIP')
 
     gaia = read_gaia(
-        GAIA_DIR/'gaiadr2_hip-result.csv',
+        GAIA_DR2_DIR/'gaiadr2_hip-result.csv',
         'hip_id',
         extra_fields=['parallax', 'parallax_error'],
     )
