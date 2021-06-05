@@ -17,6 +17,7 @@
 
 """Routines for downloading the data files."""
 
+import re
 import time
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from astroquery.gaia import Gaia
 from astroquery.xmatch import XMatch
 
 from .directories import GAIA_DR2_DIR, GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
+from .ranges import MultiRange
 
 
 def _yesno(prompt: str, default: bool=False) -> bool:
@@ -234,19 +236,24 @@ WHERE
     OR DISTANCE(tyc2_pos, gaia_prop_pos) < 0.00027777777777777778
     """
 
-def download_gaia_hip(
-    chunk_size: int = 5000, *, begin_section: int = 0, begin_at: int = 1
-) -> None:
+
+def download_gaia_hip(chunk_size: int = 5000, force: bool = False) -> None:
     """Download HIP data from the Gaia archive."""
+    required_ranges = MultiRange(1, _HIP_MAX)
+    if not force:
+        pattern = re.compile(r'gaiaedr3-hip2-([0-9]+)-([0-9]+)\.votable')
+        for existing in GAIA_EDR3_DIR.glob('gaiaedr3-hip2-*.votable'):
+            match = pattern.match(existing.name)
+            if match:
+                groups = match.groups()
+                required_ranges.remove(int(groups[0]), int(groups[1]))
+    required_ranges.chunk(chunk_size)
 
-    section = begin_section
-    start = begin_at
-    end = begin_at+chunk_size-1
-    while start <= _HIP_MAX:
-        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-part{section:02}.votable'
+    for subrange in required_ranges.ranges:
+        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{subrange.begin:06}-{subrange.end:06}.votable'
 
-        query = _hip_query(start, end)
-        print(f'Querying HIP stars in range {start} to {end}')
+        query = _hip_query(subrange.begin, subrange.end)
+        print(f'Querying HIP stars in range {subrange.begin} to {subrange.end}')
         job = Gaia.launch_job_async(
             query,
             dump_to_file=True,
@@ -273,24 +280,26 @@ def download_gaia_hip(
         job.save_results()
         Gaia.remove_jobs([job.jobid])
 
-        section += 1
-        start = end+1
-        end = min(end+chunk_size, _HIP_MAX)
 
-
-def download_gaia_tyc(
-    chunk_size = 20, *, begin_section: int = 0, begin_at = 1
-) -> None:
+def download_gaia_tyc(chunk_size: int = 20, force: bool = False) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
+    required_ranges = MultiRange(1, _TYC_MAX)
+    if not force:
+        pattern = re.compile(r'gaiaedr3-tyctdsc-([0-9]+)-([0-9]+)\.votable')
+        for existing in GAIA_EDR3_DIR.glob('gaiaedr3-tyctdsc-*.votable'):
+            match = pattern.match(existing.name)
+            if match:
+                groups = match.groups()
+                required_ranges.remove(int(groups[0]), int(groups[1]))
+    required_ranges.chunk(chunk_size)
 
-    section = begin_section
-    start = begin_at
-    end = begin_at+chunk_size-1
-    while start <= _TYC_MAX:
-        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{section:02}.votable'
+    for subrange in required_ranges.ranges:
+        hip_file = (
+            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{subrange.begin:04}-{subrange.end:04}.votable'
+        )
 
-        query = _tyc_query(start, end)
-        print(f'Querying TYC/TDSC stars in regions {start} to {end}')
+        query = _tyc_query(subrange.begin, subrange.end)
+        print(f'Querying TYC/TDSC stars in regions {subrange.begin} to {subrange.end}')
         job = Gaia.launch_job_async(
             query,
             dump_to_file=True,
@@ -316,10 +325,6 @@ def download_gaia_tyc(
 
         job.save_results()
         Gaia.remove_jobs([job.jobid])
-
-        section += 1
-        start = end+1
-        end = min(end+chunk_size, _HIP_MAX)
 
 
 def download_gaia() -> None:
