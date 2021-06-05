@@ -1,6 +1,8 @@
 Gaia EDR3 for celestia.Sci/Celestia
 ==================================
 
+**THIS BRANCH IS CURRENTLY A WORK-IN-PROGRESS AND IN A NON-WORKING STATE.**
+
 This repository contains Python scripts to generate a celestia.Sci/Celestia
 star database from the *Gaia* Data Release 2 data, supplemented by the XHIP
 catalogue.
