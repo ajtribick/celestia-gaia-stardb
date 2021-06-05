@@ -248,14 +248,14 @@ def _run_query(query: str, output_file: Path) -> None:
     )
 
     print(f'  Launched job id {job.jobid}')
-    delay=10
+    delay=15
     while True:
         phase = job.get_phase(update=True)
         if job.is_finished():
             break
         print(f'  {phase}, waiting {delay} seconds')
         time.sleep(delay)
-        delay = min(delay+10, 60)
+        delay = min(delay*2, 120)
 
     print(f'  {phase}')
     if phase != 'COMPLETED':
