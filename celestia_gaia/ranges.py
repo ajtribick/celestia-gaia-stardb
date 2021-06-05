@@ -19,7 +19,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import Iterator, List
 
 
 class Range:
@@ -80,6 +80,9 @@ class MultiRange:
     def __init__(self, begin: int, end: int) -> None:
         self.ranges = [Range(begin, end)]
 
+    def __bool__(self) -> bool:
+        return len(self.ranges) > 0
+
     def remove(self, *args) -> None:
         """Removes a range from the set of ranges."""
         if len(args) == 1:
@@ -98,13 +101,8 @@ class MultiRange:
 
         self.ranges = new_ranges
 
-    def chunk(self, chunk_size) -> None:
-        """Splits the constituent ranges into chunks of at most chunk_size."""
-        new_ranges = []
+    def chunk_ranges(self, chunk_size: int) -> Iterator[Range]:
+        """Returns the constituent ranges with a maximum chunk size."""
         for subrange in self.ranges:
-            new_ranges += subrange.chunks(chunk_size)
-        self.ranges = new_ranges
-
-    def is_empty(self) -> bool:
-        """Checks whether this MultiRange is empty."""
-        return len(self.ranges) > 0
+            for chunk in subrange.chunks(chunk_size):
+                yield chunk

@@ -27,7 +27,7 @@ from astropy import units
 from astroquery.gaia import Gaia
 from astroquery.xmatch import XMatch
 
-from .directories import GAIA_DR2_DIR, GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
 from .ranges import MultiRange
 
 
@@ -237,19 +237,9 @@ WHERE
     """
 
 
-def download_gaia_hip(chunk_size: int = 5000, force: bool = False) -> None:
+def download_gaia_hip(ranges: MultiRange, chunk_size: int = 5000) -> None:
     """Download HIP data from the Gaia archive."""
-    required_ranges = MultiRange(1, _HIP_MAX)
-    if not force:
-        pattern = re.compile(r'gaiaedr3-hip2-([0-9]+)-([0-9]+)\.votable')
-        for existing in GAIA_EDR3_DIR.glob('gaiaedr3-hip2-*.votable'):
-            match = pattern.match(existing.name)
-            if match:
-                groups = match.groups()
-                required_ranges.remove(int(groups[0]), int(groups[1]))
-    required_ranges.chunk(chunk_size)
-
-    for subrange in required_ranges.ranges:
+    for subrange in ranges.chunk_ranges(chunk_size):
         hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{subrange.begin:06}-{subrange.end:06}.votable'
 
         query = _hip_query(subrange.begin, subrange.end)
@@ -281,19 +271,9 @@ def download_gaia_hip(chunk_size: int = 5000, force: bool = False) -> None:
         Gaia.remove_jobs([job.jobid])
 
 
-def download_gaia_tyc(chunk_size: int = 20, force: bool = False) -> None:
+def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 20) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
-    required_ranges = MultiRange(1, _TYC_MAX)
-    if not force:
-        pattern = re.compile(r'gaiaedr3-tyctdsc-([0-9]+)-([0-9]+)\.votable')
-        for existing in GAIA_EDR3_DIR.glob('gaiaedr3-tyctdsc-*.votable'):
-            match = pattern.match(existing.name)
-            if match:
-                groups = match.groups()
-                required_ranges.remove(int(groups[0]), int(groups[1]))
-    required_ranges.chunk(chunk_size)
-
-    for subrange in required_ranges.ranges:
+    for subrange in ranges.chunk_ranges(chunk_size):
         hip_file = (
             GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{subrange.begin:04}-{subrange.end:04}.votable'
         )
@@ -327,13 +307,34 @@ def download_gaia_tyc(chunk_size: int = 20, force: bool = False) -> None:
         Gaia.remove_jobs([job.jobid])
 
 
+_RANGE_PATTERN = re.compile(r'-([0-9]+)-([0-9]+)$')
+
+
+def _getranges(start: int, end: int, path: Path, pattern: str) -> MultiRange:
+    required_ranges = MultiRange(start, end)
+    for existing in path.glob(pattern):
+        match = _RANGE_PATTERN.search(existing.stem)
+        if match:
+            groups = match.groups()
+            required_ranges.remove(int(groups[0]), int(groups[1]))
+    return required_ranges
+
+
 def download_gaia() -> None:
     """Download data from the Gaia archive."""
-    GAIA_DR2_DIR.mkdir(parents=True, exist_ok=True)
     GAIA_EDR3_DIR.mkdir(parents=True, exist_ok=True)
 
-    download_gaia_hip()
-    download_gaia_tyc()
+    hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, 'gaiaedr3-hip2-*.votable')
+    if not hip_ranges:
+        if _yesno('Hipparcos cross-match data already downloaded, replace?'):
+            hip_ranges = MultiRange(1, _HIP_MAX)
+    download_gaia_hip(hip_ranges)
+
+    tyc_ranges = _getranges(1, _TYC_MAX, GAIA_EDR3_DIR, 'gaiaedr3-tyctdsc-*.votable')
+    if not tyc_ranges:
+        if _yesno('Tycho cross-match data already downloaded, replace?'):
+            tyc_ranges = MultiRange(1, _TYC_MAX)
+    download_gaia_tyc(tyc_ranges)
 
 
 # --- SAO XMATCH DOWNLOAD ---
