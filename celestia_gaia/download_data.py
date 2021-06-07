@@ -80,76 +80,25 @@ _TYC_MAX = 9537
 
 def _hip_query(start: int, end: int) -> str:
     return f"""SELECT
-    hip, hip2_plx, hip2_e_plx, hip2_ra, hip2_dec, hp_mag,
-    source_id, ra, dec, parallax, parallax_error,
-    pmra, pmra_error, pmdec, pmdec_error,
-    IF_THEN_ELSE(
-        bp_rp > -20,
-        TO_REAL(CASE_CONDITION(
-            phot_g_mean_mag - 2.5*LOG10(
-                1.00525 - 0.02323*GREATEST(0.25, LEAST(bp_rp, 3))
-                + 0.01740*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
-                - 0.00253*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
-            ),
-            astrometric_params_solved = 31,
-            phot_g_mean_mag,
-            phot_g_mean_mag < 13,
-            phot_g_mean_mag,
-            phot_g_mean_mag < 16,
-            phot_g_mean_mag - 2.5*LOG10(
-                1.00876 - 0.02540*GREATEST(0.25, LEAST(bp_rp, 3))
-                + 0.01747*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
-                - 0.00277*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
-            )
-        )),
-        phot_g_mean_mag
-    ) AS phot_g_mean_mag,
-    bp_rp, ref_epoch,
-    r_med_geo, r_med_photogeo,
-    delta_mag,
-    DISTANCE(hip2_pos, gaia_prop_pos)*3600 AS dist,
-    CASE_CONDITION(
-        delta_ra,
-        delta_ra < -180, delta_ra + 360,
-        delta_ra > 180, delta_ra - 360
-    )*3600000/(ref_epoch-1991.25) AS calc_pmra,
-    delta_dec*3600000/(ref_epoch-1991.25) AS calc_pmdec
+	h.hip, h.plx AS hip_parallax, h.e_plx AS hip_parallax_error, h.ra AS hip_ra, h.dec AS hip_dec,
+    h.hp_mag,
+    g.source_id, g.ra, g.dec, g.parallax, g.parallax_error, g.dr2_radial_velocity, g.ref_epoch,
+    g.pmra, g.pmra_error, g.pmdec, g.pmdec_error,
+    g.phot_g_mean_mag, g.phot_bp_mean_mag, g.phot_rp_mean_mag,
+    g.astrometric_params_solved
 FROM
-    (
-        SELECT
-            hip2.hip, hip2.plx AS hip2_plx, hip2.e_plx AS hip2_e_plx,
-            hip2.ra AS hip2_ra, hip2.dec AS hip2_dec, hip2.hp_mag,
-            gaia.source_id, gaia.ra, gaia.dec, gaia.parallax, gaia.parallax_error,
-            gaia.pmra, gaia.pmra_error, gaia.pmdec, gaia.pmdec_error,
-            gaia.phot_g_mean_mag, gaia.bp_rp,
-            gaia.ref_epoch, gaia.astrometric_params_solved,
-            dist.r_med_geo, dist.r_med_photogeo,
-            hip2.hp_mag-(
-                0.91*COALESCE(gaia.phot_bp_mean_mag, gaia.phot_g_mean_mag)
-                +0.09*COALESCE(gaia.phot_rp_mean_mag, gaia.phot_g_mean_mag)
-            ) AS delta_mag,
-            POINT('ICRS', hip2.ra, hip2.dec) AS hip2_pos,
-            EPOCH_PROP_POS(
-                gaia.ra, gaia.dec, gaia.parallax, gaia.pmra, gaia.pmdec,
-                COALESCE(gaia.dr2_radial_velocity, 0),
-                gaia.ref_epoch, 1991.25
-            ) AS gaia_prop_pos,
-            gaia.ra - hip2.ra AS delta_ra,
-            gaia.dec - hip2.dec AS delta_dec
-        FROM
-            public.hipparcos_newreduction hip2
-            JOIN gaiaedr3.gaia_source gaia ON 1=CONTAINS(
-                POINT('ICRS', hip2.ra, hip2.dec),
-                CIRCLE('ICRS', gaia.ra, gaia.dec, 0.05)
-            )
-            LEFT JOIN external.gaiaedr3_distance dist ON dist.source_id = gaia.source_id
-        WHERE
-            hip2.hip BETWEEN {start} AND {end}
-    ) m
+	public.hipparcos_newreduction h
+	JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
+		POINT(
+			'ICRS',
+			h.ra+COALESCE(h.pm_ra, 0)*COS(RADIANS(h.dec))*(2016.0-1991.25)/3600000.0,
+			h.dec+COALESCE(h.pm_de, 0)*(2016.0-1991.25)/3600000.0
+		),
+		CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
+	)
 WHERE
-    phot_g_mean_mag <= 13.7
-    OR delta_mag BETWEEN -1 AND 0.5
-    OR DISTANCE(hip2_pos, gaia_prop_pos) < 0.00027777777777777778
+    h.hip BETWEEN {start} and {end}
+	AND ABS(h.hp_mag-g.phot_g_mean_mag) <= 3
     """
 
 
@@ -157,83 +106,25 @@ def _tyc_query(start: int, end: int) -> str:
     id_start = start * 1000000
     id_end = (end+1) * 1000000 - 1
     return f"""SELECT
-    tyc1, tyc2, tyc3, hip, cmp,
-    tyc2_ra, tyc2_dec, tyc2_epoch, vt_mag, bt_mag,
-    source_id, ra, dec, parallax, parallax_error,
-    pmra, pmra_error, pmdec, pmdec_error,
-    IF_THEN_ELSE(
-        bp_rp > -20,
-        TO_REAL(CASE_CONDITION(
-            phot_g_mean_mag - 2.5*LOG10(
-                1.00525 - 0.02323*GREATEST(0.25, LEAST(bp_rp, 3))
-                + 0.01740*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
-                - 0.00253*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
-            ),
-            astrometric_params_solved = 31,
-            phot_g_mean_mag,
-            phot_g_mean_mag < 13,
-            phot_g_mean_mag,
-            phot_g_mean_mag < 16,
-            phot_g_mean_mag - 2.5*LOG10(
-                1.00876 - 0.02540*GREATEST(0.25, LEAST(bp_rp, 3))
-                + 0.01747*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 2)
-                - 0.00277*POWER(GREATEST(0.25, LEAST(bp_rp, 3)), 3)
-            )
-        )),
-        phot_g_mean_mag
-    ) AS phot_g_mean_mag,
-    bp_rp, ref_epoch,
-    r_med_geo, r_med_photogeo,
-    delta_mag,
-    DISTANCE(tyc2_pos, gaia_prop_pos)*3600 AS dist,
-    CASE_CONDITION(
-        delta_ra,
-        delta_ra < -180, delta_ra + 360,
-        delta_ra > 180, delta_ra - 360
-    )*3600000/(ref_epoch-tyc2_epoch) AS calc_pmra,
-    delta_dec*3600000/(ref_epoch-tyc2_epoch) AS calc_pmdec
+	t.tyc1, t.tyc2, t.tyc3, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
+    t.bt_mag, t.vt_mag, t.ep_ra1990, t.ep_de1990,
+    g.source_id, g.ra, g.dec, g.parallax, g.parallax_error, g.dr2_radial_velocity, g.ref_epoch,
+    g.pmra, g.pmra_error, g.pmdec, g.pmdec_error,
+    g.phot_g_mean_mag, g.phot_bp_mean_mag, g.phot_rp_mean_mag,
+    g.astrometric_params_solved
 FROM
-    (
-        SELECT
-            TO_INTEGER(tyc2.tyc1) AS tyc1,
-            TO_INTEGER(tyc2.tyc2) AS tyc2,
-            TO_INTEGER(tyc2.tyc3) AS tyc3,
-            tyc2.ra_deg AS tyc2_ra, tyc2.de_deg AS tyc2_dec,
-            0.5*(tyc2.ep_ra1990 + tyc2.ep_de1990)+1990 AS tyc2_epoch,
-            tyc2.vt_mag, tyc2.bt_mag, tyc2.hip, tyc2.cmp,
-            gaia.source_id, gaia.ra, gaia.dec, gaia.parallax, gaia.parallax_error,
-            gaia.pmra, gaia.pmra_error, gaia.pmdec, gaia.pmdec_error,
-            gaia.phot_g_mean_mag, gaia.bp_rp,
-            gaia.ref_epoch, gaia.astrometric_params_solved,
-            dist.r_med_geo, dist.r_med_photogeo,
-            (
-                0.99*COALESCE(tyc2.vt_mag, tyc2.bt_mag)
-                +0.01*COALESCE(tyc2.bt_mag, tyc2.vt_mag)
-            )-(
-                0.91*COALESCE(gaia.phot_bp_mean_mag, gaia.phot_g_mean_mag)
-                +0.09*COALESCE(gaia.phot_rp_mean_mag, gaia.phot_g_mean_mag)
-            ) AS delta_mag,
-            POINT('ICRS', tyc2.ra, tyc2.dec) AS tyc2_pos,
-            EPOCH_PROP_POS(
-                gaia.ra, gaia.dec, gaia.parallax, gaia.pmra, gaia.pmdec,
-                COALESCE(gaia.dr2_radial_velocity, 0),
-                gaia.ref_epoch, 0.5*(tyc2.ep_ra1990 + tyc2.ep_de1990)+1990
-            ) AS gaia_prop_pos,
-            gaia.ra - tyc2.ra AS delta_ra,
-            gaia.dec - tyc2.dec AS delta_dec
-        FROM
-            gaiaedr3.tycho2tdsc_merge tyc2
-            JOIN gaiaedr3.gaia_source gaia ON 1=CONTAINS(
-                POINT('ICRS', tyc2.ra, tyc2.dec),
-                CIRCLE('ICRS', gaia.ra, gaia.dec, 0.05)
-            )
-            LEFT JOIN external.gaiaedr3_distance dist ON dist.source_id = gaia.source_id
-        WHERE
-            tyc2.id_tycho BETWEEN {id_start} AND {id_end}
-    ) m
+	gaiaedr3.tycho2tdsc_merge t
+	JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
+		POINT(
+			'ICRS',
+			t.ra_deg+COALESCE(t.pm_ra, 0)*COS(RADIANS(t.de_deg))*(2016.0-t.ep_ra1990-1990.0)/3600000.0,
+			t.de_deg+COALESCE(t.pm_de, 0)*(2016.0-t.ep_de1990-1990.0)/3600000.0
+		),
+		CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
+	)
 WHERE
-    delta_mag BETWEEN -1 AND 0.5
-    OR DISTANCE(tyc2_pos, gaia_prop_pos) < 0.00027777777777777778
+    t.id_tycho BETWEEN {id_start} AND {id_end}
+	AND ABS(COALESCE(t.vt_mag, t.bt_mag)-g.phot_g_mean_mag) <= 3
     """
 
 
@@ -266,7 +157,7 @@ def _run_query(query: str, output_file: Path) -> None:
     Gaia.remove_jobs([job.jobid])
 
 
-def download_gaia_hip(ranges: MultiRange, chunk_size: int = 5000) -> None:
+def download_gaia_hip(ranges: MultiRange, chunk_size: int = 50000) -> None:
     """Download HIP data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
         hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{section.begin:06}-{section.end:06}.votable'
@@ -276,7 +167,7 @@ def download_gaia_hip(ranges: MultiRange, chunk_size: int = 5000) -> None:
         _run_query(query, hip_file)
 
 
-def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 20) -> None:
+def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 200) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
         tyc_file = (
