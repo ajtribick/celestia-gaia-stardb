@@ -28,7 +28,7 @@ import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
 from .directories import GAIA_DR2_DIR, VIZIER_DIR, XMATCH_DIR
-from .parse_utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
+from .utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
 
 
 def make_tyc(tyc1: int, tyc2: int, tyc3: int) -> int:

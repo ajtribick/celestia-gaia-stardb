@@ -15,7 +15,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-"""Common utilities for parsers."""
+"""Common utility functions."""
 
 import gzip
 import re
@@ -31,6 +31,23 @@ import astropy.units as u
 import numpy as np
 from astropy.table import Table, vstack
 from astropy.units import UnitsWarning
+
+
+def confirm_action(prompt: str, default: bool=False) -> bool:
+    """Prompt the user for yes/no input."""
+    if default:
+        new_prompt = f'{prompt} (Y/n): '
+    else:
+        new_prompt = f'{prompt} (y/N): '
+
+    while True:
+        answer = input(new_prompt)
+        if answer == '':
+            return default
+        if answer in ('y', 'Y'):
+            return True
+        if answer in ('n', 'N'):
+            return False
 
 
 def read_gaia(

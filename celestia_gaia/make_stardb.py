@@ -29,8 +29,8 @@ from astropy.table import MaskedColumn, Table, join, unique, vstack
 from .directories import VIZIER_DIR
 from .parse_hip import process_hip
 from .parse_tyc import process_tyc
-from .parse_utils import WorkaroundCDSReader, open_cds_tarfile
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
+from .utils import WorkaroundCDSReader, open_cds_tarfile
 
 VERSION = "1.0.4"
 

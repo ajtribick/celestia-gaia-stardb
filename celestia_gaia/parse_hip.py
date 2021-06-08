@@ -28,7 +28,7 @@ from astropy.time import Time
 from erfa import ErfaWarning
 
 from .directories import GAIA_DR2_DIR, VIZIER_DIR, XMATCH_DIR
-from .parse_utils import open_cds_tarfile, read_gaia
+from .utils import open_cds_tarfile, read_gaia
 
 
 def load_gaia_hip() -> Table:
