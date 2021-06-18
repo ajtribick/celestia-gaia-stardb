@@ -47,7 +47,7 @@ FROM
 	JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
 		POINT(
 			'ICRS',
-			h.ra+COALESCE(h.pm_ra, 0)*COS(RADIANS(h.dec))*(2016.0-1991.25)/3600000.0,
+			h.ra+COALESCE(h.pm_ra, 0)/COS(RADIANS(h.dec))*(2016.0-1991.25)/3600000.0,
 			h.dec+COALESCE(h.pm_de, 0)*(2016.0-1991.25)/3600000.0
 		),
 		CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
@@ -73,7 +73,7 @@ FROM
 	JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
 		POINT(
 			'ICRS',
-			t.ra_deg+COALESCE(t.pm_ra, 0)*COS(RADIANS(t.de_deg))*(2016.0-t.ep_ra1990-1990.0)/3600000.0,
+			t.ra_deg+COALESCE(t.pm_ra, 0)/COS(RADIANS(t.de_deg))*(2016.0-t.ep_ra1990-1990.0)/3600000.0,
 			t.de_deg+COALESCE(t.pm_de, 0)*(2016.0-t.ep_de1990-1990.0)/3600000.0
 		),
 		CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
