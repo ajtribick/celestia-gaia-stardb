@@ -19,7 +19,7 @@
 
 from __future__ import annotations
 
-from typing import Iterator, List
+from typing import Iterator
 
 
 class Range:
@@ -39,7 +39,7 @@ class Range:
     def __str__(self) -> str:
         return f'[{self.begin}, {self.end}]'
 
-    def subtract_range(self, *args) -> List[Range]:
+    def subtract_range(self, *args) -> list[Range]:
         """Returns the ranges that would result from removing a range from this one."""
         if len(args) == 1:
             if isinstance(args[0], Range):
@@ -63,7 +63,7 @@ class Range:
                 result.append(Range(other.end+1, self.end))
         return result
 
-    def chunks(self, chunk_size) -> List[Range]:
+    def chunks(self, chunk_size) -> list[Range]:
         """Splits the range into chunks of size chunk_size, last chunk may be smaller."""
         result = []
         start = self.begin
@@ -75,7 +75,7 @@ class Range:
 
 class MultiRange:
     """Represents a set of ranges."""
-    ranges: List[Range]
+    ranges: list[Range]
 
     def __init__(self, begin: int, end: int) -> None:
         self.ranges = [Range(begin, end)]

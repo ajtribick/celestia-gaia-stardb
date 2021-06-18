@@ -17,10 +17,12 @@
 
 """Routines for parsing the TYC2 data."""
 
+from __future__ import annotations
+
 import gzip
 import tarfile
 from pathlib import PurePath
-from typing import Dict, IO, Tuple
+from typing import IO
 
 import astropy.io.ascii as io_ascii
 import astropy.units as u
@@ -104,7 +106,7 @@ def parse_tyc_string(data: Table, src_column: str, dest_column: str='TYC') -> No
 
 def parse_tyc_cols(
     data: Table,
-    src_columns: Tuple[str, str, str] = ('TYC1', 'TYC2', 'TYC3'),
+    src_columns: tuple[str, str, str] = ('TYC1', 'TYC2', 'TYC3'),
     dest_column: str='TYC'
 ) -> None:
     """Convert TYC identifier components into a synthetic HIP identifier."""
@@ -223,7 +225,7 @@ class TYCTeffReader(WorkaroundCDSReader):
             names=['TYC', 'teff_val'],
         )
 
-    def process_line(self, table: Table, record: int, fields: Dict[str, str]) -> bool:
+    def process_line(self, table: Table, record: int, fields: dict[str, str]) -> bool:
         """Processes fields from a line of the input file."""
         try:
             tycsplit = fields['Tycho'].split('-')

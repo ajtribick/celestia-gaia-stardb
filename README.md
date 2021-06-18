@@ -19,7 +19,7 @@ files in the release may be used under a CC-BY-SA 4.0 license
 ## Prerequisites
 
 -  Internet connection for downloading the data
--  Python 3.6 or higher (preferably 64-bit, as the memory usage can be quite
+-  Python 3.7 or higher (preferably 64-bit, as the memory usage can be quite
    high)
 -  celestia.Sci/Celestia
 

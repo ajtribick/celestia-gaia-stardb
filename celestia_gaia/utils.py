@@ -17,6 +17,8 @@
 
 """Common utility functions."""
 
+from __future__ import annotations
+
 import gzip
 import re
 import tarfile
@@ -24,7 +26,7 @@ import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from tarfile import TarFile
-from typing import Dict, Generator, IO, List, Optional, TextIO, Tuple, Union
+from typing import Generator, IO, Optional, TextIO, Union
 
 import astropy.io.ascii as io_ascii
 import astropy.units as u
@@ -51,7 +53,7 @@ def confirm_action(prompt: str, default: bool=False) -> bool:
 
 
 def read_gaia(
-    files: Union[Path, List[Path]], id_name: str, *, extra_fields: Optional[List[str]] = None
+    files: Union[Path, list[Path]], id_name: str, *, extra_fields: Optional[list[str]] = None
 ):
     """Parse the CSV files produced by querying the Gaia TAP endpoint."""
     fields = ['source_id', id_name, 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp', 'teff_val', 'r_est']
@@ -82,7 +84,7 @@ class TarCds:
         self.tf = tf
 
     def read(
-        self, table: str, names: List[str], *, readme_name: Optional[str] = None, **kwargs
+        self, table: str, names: list[str], *, readme_name: Optional[str] = None, **kwargs
     ) -> Table:
         """Reads a table from the CDS archive."""
         if readme_name is None:
@@ -93,7 +95,7 @@ class TarCds:
                 return self._read(reader, f)
 
     def read_gzip(
-        self, table: str, names: List[str], *, readme_name: Optional[str]=None, **kwargs
+        self, table: str, names: list[str], *, readme_name: Optional[str]=None, **kwargs
     ) -> Table:
         """Reads a gzipped table from the CDS archive."""
         if readme_name is None:
@@ -104,7 +106,7 @@ class TarCds:
                 return self._read(reader, f)
 
     @classmethod
-    def _create_reader(cls, readme: IO, table: str, names: List[str], **kwargs) -> io_ascii.Cds:
+    def _create_reader(cls, readme: IO, table: str, names: list[str], **kwargs) -> io_ascii.Cds:
         reader = io_ascii.get_reader(
             io_ascii.Cds, readme=readme, include_names=names, **kwargs,
         )
@@ -129,7 +131,7 @@ def open_cds_tarfile(file: Path) -> Generator[TarCds, None, None]:
 class WorkaroundCDSReader:
     """Custom CDS file reader to work around errors in input data formats."""
 
-    def __init__(self, table: str, labels: List[str], dtypes: List[np.dtype], readme: IO) -> None:
+    def __init__(self, table: str, labels: list[str], dtypes: list[np.dtype], readme: IO) -> None:
         self.labels = labels
         self.dtypes = dtypes
         self.record_count, self.ranges = self._get_fields(table, labels, readme)
@@ -148,7 +150,7 @@ class WorkaroundCDSReader:
         """Creates the table."""
         return Table([np.empty(self.record_count, d) for d in self.dtypes], names=self.labels)
 
-    def process_line(self, table: Table, record: int, fields: Dict[str, str]) -> bool:
+    def process_line(self, table: Table, record: int, fields: dict[str, str]) -> bool:
         """Processes fields from a line of the input file."""
         for label, dtype in zip(self.labels, self.dtypes):
             try:
@@ -159,8 +161,8 @@ class WorkaroundCDSReader:
 
     @classmethod
     def _get_fields(
-        cls, table: str, labels: List[str], readme: IO
-    ) -> Tuple[int, Dict[str, Tuple[int, int]]]:
+        cls, table: str, labels: list[str], readme: IO
+    ) -> tuple[int, dict[str, tuple[int, int]]]:
         ranges = {}
 
         re_file = re.compile(re.escape(table) + r'\ +[0-9]+\ +(?P<length>[0-9]+)')
