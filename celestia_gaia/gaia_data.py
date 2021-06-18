@@ -62,7 +62,7 @@ def _tyc_query(start: int, end: int) -> str:
     id_start = start * 1000000
     id_end = (end+1) * 1000000 - 1
     return f"""SELECT
-	t.tyc1, t.tyc2, t.tyc3, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
+	t.id_tycho, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
     t.bt_mag, t.vt_mag, t.ep_ra1990, t.ep_de1990,
     g.source_id, g.ra, g.dec, g.parallax, g.parallax_error, g.dr2_radial_velocity, g.ref_epoch,
     g.pmra, g.pmra_error, g.pmdec, g.pmdec_error,
@@ -116,7 +116,7 @@ def _run_query(query: str, output_file: Path) -> None:
 def download_gaia_hip(ranges: MultiRange, chunk_size: int = 50000) -> None:
     """Download HIP data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
-        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{section.begin:06}-{section.end:06}.votable'
+        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{section.begin:06}-{section.end:06}.vot.gz'
 
         query = _hip_query(section.begin, section.end)
         print(f'Querying HIP stars in range {section.begin} to {section.end}')
@@ -127,7 +127,7 @@ def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 200) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
         tyc_file = (
-            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{section.begin:04}-{section.end:04}.votable'
+            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{section.begin:04}-{section.end:04}.vot.gz'
         )
 
         query = _tyc_query(section.begin, section.end)
@@ -152,13 +152,13 @@ def download_gaia() -> None:
     """Download data from the Gaia archive."""
     GAIA_EDR3_DIR.mkdir(parents=True, exist_ok=True)
 
-    hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, 'gaiaedr3-hip2-*.votable')
+    hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, 'gaiaedr3-hip2-*.vot.gz')
     if not hip_ranges:
         if confirm_action('Hipparcos cross-match data already downloaded, replace?'):
             hip_ranges = MultiRange(1, _HIP_MAX)
     download_gaia_hip(hip_ranges)
 
-    tyc_ranges = _getranges(1, _TYC_MAX, GAIA_EDR3_DIR, 'gaiaedr3-tyctdsc-*.votable')
+    tyc_ranges = _getranges(1, _TYC_MAX, GAIA_EDR3_DIR, 'gaiaedr3-tyctdsc-*.vot.gz')
     if not tyc_ranges:
         if confirm_action('Tycho cross-match data already downloaded, replace?'):
             tyc_ranges = MultiRange(1, _TYC_MAX)
