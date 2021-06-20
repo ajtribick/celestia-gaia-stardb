@@ -1,8 +1,19 @@
-.vscode
-data
-myenv
-output/*.dat
-*.kate-swp
-*.pyc
+# Downloaded catalogs and output files
+/data
+/output/*.dat
 /celestia*.zip
+
+# Python cache and virtual environment
+*.pyc
 __pycache__
+/myenv
+
+# Rust files
+
+/target
+Cargo.lock
+/celestia_gaia/celestia_gaia.*
+
+# Editor working files
+.vscode
+*.kate-swp

@@ -23,9 +23,10 @@ import time
 
 from astroquery.gaia import Gaia
 
-from .directories import GAIA_EDR3_DIR
+from .directories import GAIA_EDR3_DIR, VIZIER_DIR
 from .ranges import MultiRange
 from .utils import confirm_action
+from .celestia_gaia import check_hip_ids
 
 
 _HIP_MAX = 120404
@@ -163,3 +164,6 @@ def download_gaia() -> None:
         if confirm_action('Tycho cross-match data already downloaded, replace?'):
             tyc_ranges = MultiRange(1, _TYC_MAX)
     download_gaia_tyc(tyc_ranges)
+
+def check_hip() -> None:
+    check_hip_ids(str(VIZIER_DIR / "hip2.dat.gz"), str(GAIA_EDR3_DIR))

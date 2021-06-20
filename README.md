@@ -21,6 +21,7 @@ files in the release may be used under a CC-BY-SA 4.0 license
 -  Internet connection for downloading the data
 -  Python 3.7 or higher (preferably 64-bit, as the memory usage can be quite
    high)
+-  Rust 1.53 or later
 -  celestia.Sci/Celestia
 
 ## Folder contents
@@ -47,18 +48,22 @@ steps below **before** you begin.
 
     `python -m pip install -r requirements.txt`
 
-6.  Run the download script. **This step may take several hours!**
+6.  Build the Rust code
+
+    `maturin develop --release`
+
+7.  Run the download script. **This step may take several hours!**
 
     `python download_data`
 
-7.  Run the build script.
+8.  Run the build script.
 
     `python make_stardb`
 
-8.  The stars.dat, hdxindex.dat and saoxindex.dat files will be written into
+9.  The stars.dat, hdxindex.dat and saoxindex.dat files will be written into
     the output folder
 
-9.  Copy the files into the `data` folder of the celestia.Sci/Celestia
+10. Copy the files into the `data` folder of the celestia.Sci/Celestia
     distribution.
 
 ## References

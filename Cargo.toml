@@ -1,0 +1,21 @@
+[package]
+name = "celestia_gaia"
+authors = ["Andrew Tribick <ajtribick@googlemail.com>"]
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "celestia_gaia"
+crate-type = ["cdylib"]
+
+[dependencies]
+base64 = "0.13.0"
+bitvec = "0.22.3"
+byteorder = "1.4"
+flate2 = "1.0"
+globset = "0.4.8"
+memchr = "2.4"
+pyo3 = {version="0.13.2", features=["extension-module"]}
+quick-xml = "0.22.0"
