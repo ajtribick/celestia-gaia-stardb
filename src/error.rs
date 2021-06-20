@@ -1,6 +1,6 @@
 use std::{error, fmt, io};
 
-use pyo3::{PyErr, exceptions::PyRuntimeError};
+use pyo3::{exceptions::PyRuntimeError, PyErr};
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -39,6 +39,12 @@ impl From<globset::Error> for Error {
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Self::IoError(e)
+    }
+}
+
+impl From<io::ErrorKind> for Error {
+    fn from(e: io::ErrorKind) -> Self {
+        Self::IoError(e.into())
     }
 }
 

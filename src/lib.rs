@@ -12,7 +12,7 @@ use pyo3::{prelude::*, wrap_pyfunction};
 mod error;
 mod votable;
 
-use votable::parse_votable;
+use votable::VotableReader;
 
 const HIP_SIZE: usize = 120404;
 
@@ -43,7 +43,10 @@ fn set_hip_ids(path: impl AsRef<Path>) -> io::Result<(BitVec, Vec<f32>)> {
     Ok((hip_ids, magnitudes))
 }
 
-fn check_hip_ids_impl(hip_file: impl AsRef<Path>, gaia_dir: impl AsRef<Path>) -> Result<(), error::Error> {
+fn check_hip_ids_impl(
+    hip_file: impl AsRef<Path>,
+    gaia_dir: impl AsRef<Path>,
+) -> Result<(), error::Error> {
     let (mut hip_ids, magnitudes) = set_hip_ids(hip_file)?;
     let pattern = Glob::new("**/gaiaedr3-hip2-*.vot.gz")?.compile_matcher();
     for entry_result in read_dir(gaia_dir)? {
@@ -58,7 +61,14 @@ fn check_hip_ids_impl(hip_file: impl AsRef<Path>, gaia_dir: impl AsRef<Path>) ->
         }
 
         let file = File::open(entry_path)?;
-        parse_votable(file, &mut hip_ids)?;
+        let mut reader = VotableReader::new(file)?;
+        let hip_ordinal = reader
+            .ordinal(b"hip")
+            .ok_or(io::Error::new(ErrorKind::InvalidData, "Missing HIP field"))?;
+        while let Some(accessor) = reader.read()? {
+            let hip = accessor.read_i32(hip_ordinal)?.unwrap();
+            hip_ids.set(hip as usize - 1, true);
+        }
     }
 
     hip_ids
