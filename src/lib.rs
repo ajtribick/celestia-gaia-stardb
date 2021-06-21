@@ -1,11 +1,8 @@
 use std::{
+    collections::HashMap,
     fs::{read_dir, File},
-    io::{self, BufRead, BufReader, ErrorKind},
-    path::Path,
 };
 
-use bitvec::prelude::*;
-use flate2::read::GzDecoder;
 use globset::Glob;
 use pyo3::{prelude::*, wrap_pyfunction};
 
@@ -15,41 +12,11 @@ mod votable;
 use error::Error;
 use votable::VotableReader;
 
-const HIP_SIZE: usize = 120404;
-
-fn set_hip_ids(path: impl AsRef<Path>) -> io::Result<(BitVec, Vec<f32>)> {
-    let mut hip_ids = bitvec![1; 120404];
-    let mut magnitudes = vec![f32::NAN; HIP_SIZE];
-    let file = File::open(path)?;
-    let decoder = GzDecoder::new(file);
-    let mut reader = BufReader::new(decoder);
-    let mut line_buf = String::with_capacity(277);
-    while reader.read_line(&mut line_buf)? != 0 {
-        let hip: usize = line_buf[0..6]
-            .trim()
-            .parse()
-            .map_err(|_| io::Error::new(ErrorKind::InvalidData, "Could not parse HIP id"))?;
-        hip_ids.set(hip - 1, false);
-
-        let hp_mag = line_buf[129..136]
-            .trim()
-            .parse()
-            .map_err(|_| io::Error::new(ErrorKind::InvalidData, "Could not parse Hpmag"))?;
-
-        magnitudes[hip - 1] = hp_mag;
-
-        line_buf.clear();
-    }
-
-    Ok((hip_ids, magnitudes))
-}
-
-fn check_hip_ids_impl(
-    hip_file: impl AsRef<Path>,
-    gaia_dir: impl AsRef<Path>,
-) -> Result<(), Error> {
-    let (mut hip_ids, magnitudes) = set_hip_ids(hip_file)?;
+#[pyfunction]
+fn check_hip_ids(gaia_dir: String) -> PyResult<()> {
     let pattern = Glob::new("**/gaiaedr3-hip2-*.vot.gz").map_err(Error::new)?.compile_matcher();
+    let mut hip_to_gaia: HashMap<i32, Vec<i64>> = HashMap::new();
+    let mut gaia_to_hip: HashMap<i64, Vec<i32>> = HashMap::new();
     for entry_result in read_dir(gaia_dir)? {
         let entry = entry_result?;
         if !entry.metadata()?.is_file() {
@@ -65,25 +32,36 @@ fn check_hip_ids_impl(
         let mut reader = VotableReader::new(file)?;
         let hip_ordinal = reader
             .ordinal(b"hip")
-            .ok_or(Error::parse("Missing HIP field"))?;
+            .ok_or(Error::parse("Missing hip field"))?;
+        let gaia_ordinal = reader
+            .ordinal(b"source_id")
+            .ok_or(Error::parse("Missing source_id field"))?;
         while let Some(accessor) = reader.read()? {
             let hip = accessor.read_i32(hip_ordinal)?.unwrap();
-            hip_ids.set(hip as usize - 1, true);
+            let source_id = accessor.read_i64(gaia_ordinal)?.unwrap();
+            hip_to_gaia.entry(hip).and_modify(|v| v.push(source_id)).or_insert(vec![source_id]);
+            gaia_to_hip.entry(source_id).and_modify(|v| v.push(hip)).or_insert(vec![hip]);
         }
     }
 
-    hip_ids
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| *b == false)
-        .for_each(|(hip, _)| println!("HIP {} ({})", hip + 1, magnitudes[hip]));
+    let hip_stars = hip_to_gaia.len();
+    let mut unique_gaia: usize = 0;
+    let mut unique_gaia_unshared: usize = 0;
+
+    hip_to_gaia.into_iter().for_each(|(_, source_ids)| {
+        if source_ids.len() == 1 {
+            unique_gaia += 1;
+            if gaia_to_hip[&source_ids[0]].len() == 1 {
+                unique_gaia_unshared += 1;
+            }
+        }
+    });
+
+    println!("HIP stars matched: {}", hip_stars);
+    println!("Unique matches: {}", unique_gaia);
+    println!("Unique unshared: {}", unique_gaia_unshared);
 
     Ok(())
-}
-
-#[pyfunction]
-fn check_hip_ids(hip_file: String, gaia_dir: String) -> PyResult<()> {
-    check_hip_ids_impl(hip_file, gaia_dir).map_err(|e| e.into())
 }
 
 #[pymodule]

@@ -165,6 +165,20 @@ pub struct RecordAccessor<'a> {
 }
 
 impl<'a> RecordAccessor<'a> {
+    pub fn read_i16(&self, ordinal: usize) -> Result<Option<i16>, Error> {
+        if !matches!(self.field_types[ordinal], DataType::Short) {
+            return Err(Error::field_type("Field type mismatch"));
+        }
+
+        if self.mask[ordinal] {
+            return Ok(None);
+        }
+
+        let offset = self.field_offsets[ordinal];
+        Ok(Some((&self.data[offset..offset + std::mem::size_of::<i16>()])
+            .read_i16::<BigEndian>()?))
+    }
+
     pub fn read_i32(&self, ordinal: usize) -> Result<Option<i32>, Error> {
         if !matches!(self.field_types[ordinal], DataType::Int) {
             return Err(Error::field_type("Field type mismatch"));
@@ -175,8 +189,50 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some((&self.data[offset..offset + 4])
+        Ok(Some((&self.data[offset..offset + std::mem::size_of::<i32>()])
             .read_i32::<BigEndian>()?))
+    }
+
+    pub fn read_i64(&self, ordinal: usize) -> Result<Option<i64>, Error> {
+        if !matches!(self.field_types[ordinal], DataType::Long) {
+            return Err(Error::field_type("Field type mismatch"));
+        }
+
+        if self.mask[ordinal] {
+            return Ok(None);
+        }
+
+        let offset = self.field_offsets[ordinal];
+        Ok(Some((&self.data[offset..offset + std::mem::size_of::<i64>()])
+            .read_i64::<BigEndian>()?))
+    }
+
+    pub fn read_f32(&self, ordinal: usize) -> Result<Option<f32>, Error> {
+        if !matches!(self.field_types[ordinal], DataType::Float) {
+            return Err(Error::field_type("Field type mismatch"));
+        }
+
+        if self.mask[ordinal] {
+            return Ok(None);
+        }
+
+        let offset = self.field_offsets[ordinal];
+        Ok(Some((&self.data[offset..offset + std::mem::size_of::<f32>()])
+            .read_f32::<BigEndian>()?))
+    }
+
+    pub fn read_f64(&self, ordinal: usize) -> Result<Option<f64>, Error> {
+        if !matches!(self.field_types[ordinal], DataType::Float) {
+            return Err(Error::field_type("Field type mismatch"));
+        }
+
+        if self.mask[ordinal] {
+            return Ok(None);
+        }
+
+        let offset = self.field_offsets[ordinal];
+        Ok(Some((&self.data[offset..offset + std::mem::size_of::<f64>()])
+            .read_f64::<BigEndian>()?))
     }
 }
 

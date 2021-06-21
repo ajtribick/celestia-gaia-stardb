@@ -166,4 +166,4 @@ def download_gaia() -> None:
     download_gaia_tyc(tyc_ranges)
 
 def check_hip() -> None:
-    check_hip_ids(str(VIZIER_DIR / "hip2.dat.gz"), str(GAIA_EDR3_DIR))
+    check_hip_ids(str(GAIA_EDR3_DIR))
