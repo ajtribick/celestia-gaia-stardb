@@ -26,17 +26,14 @@ enum DataType {
 }
 
 impl DataType {
-    fn parse_bytes(bstr: &[u8]) -> io::Result<Self> {
+    fn parse_bytes(bstr: &[u8]) -> Result<Self, Error> {
         match bstr {
             b"short" => Ok(Self::Short),
             b"int" => Ok(Self::Int),
             b"long" => Ok(Self::Long),
             b"float" => Ok(Self::Float),
             b"double" => Ok(Self::Double),
-            _ => Err(io::Error::new(
-                ErrorKind::InvalidData,
-                "Unsupported data type",
-            )),
+            _ => Err(Error::parse("Unsupported data type")),
         }
     }
 
@@ -60,9 +57,7 @@ fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), Error> {
             b"name" => name = Some(attribute.value.into_owned()),
             b"datatype" => datatype = Some(DataType::parse_bytes(&attribute.value)?),
             b"arraysize" => {
-                return Err(
-                    io::Error::new(ErrorKind::InvalidData, "Array types not supported").into(),
-                )
+                return Err(Error::parse("Array types not supported"))
             }
             _ => (),
         }
@@ -70,7 +65,7 @@ fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), Error> {
 
     match (name, datatype) {
         (Some(n), Some(dt)) => Ok((n, dt)),
-        _ => Err(io::Error::new(ErrorKind::InvalidData, "Field missing name and datatype").into()),
+        _ => Err(Error::parse("Field missing name and datatype")),
     }
 }
 
@@ -115,11 +110,11 @@ impl<R: Read> VotableReader<R> {
         }
 
         if field_offsets.len() == 0 {
-            return Err(io::Error::new(ErrorKind::InvalidData, "No fields found in file").into());
+            return Err(Error::parse("No fields found in file"));
         }
 
         if !is_binary2 {
-            return Err(io::Error::new(ErrorKind::InvalidData, "Format not supported").into());
+            return Err(Error::parse("Format not supported"));
         }
 
         let mask_width = (field_offsets.len() + 7) / 8;
@@ -146,7 +141,7 @@ impl<R: Read> VotableReader<R> {
         while length < self.buffer.len() {
             length += match self.reader.read(&mut self.buffer[length..]) {
                 Ok(0) if length == 0 => return Ok(None),
-                Ok(0) => return Err(Error::IoError(ErrorKind::UnexpectedEof.into())),
+                Ok(0) => return Err(Error::Io(ErrorKind::UnexpectedEof.into())),
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e.into()),
@@ -170,12 +165,9 @@ pub struct RecordAccessor<'a> {
 }
 
 impl<'a> RecordAccessor<'a> {
-    pub fn read_i32(&self, ordinal: usize) -> io::Result<Option<i32>> {
+    pub fn read_i32(&self, ordinal: usize) -> Result<Option<i32>, Error> {
         if !matches!(self.field_types[ordinal], DataType::Int) {
-            return Err(io::Error::new(
-                ErrorKind::InvalidData,
-                "Field is not an int",
-            ));
+            return Err(Error::field_type("Field type mismatch"));
         }
 
         if self.mask[ordinal] {
@@ -183,9 +175,8 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        (&self.data[offset..offset + 4])
-            .read_i32::<BigEndian>()
-            .map(Some)
+        Ok(Some((&self.data[offset..offset + 4])
+            .read_i32::<BigEndian>()?))
     }
 }
 
