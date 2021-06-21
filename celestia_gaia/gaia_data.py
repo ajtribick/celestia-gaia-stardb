@@ -23,7 +23,7 @@ import time
 
 from astroquery.gaia import Gaia
 
-from .directories import GAIA_EDR3_DIR, VIZIER_DIR
+from .directories import GAIA_EDR3_DIR
 from .ranges import MultiRange
 from .utils import confirm_action
 from .celestia_gaia import check_hip_ids

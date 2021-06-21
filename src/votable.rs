@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     cmp,
     collections::HashMap,
     io::{self, BufRead, BufReader, ErrorKind, Read},
@@ -56,9 +55,7 @@ fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), Error> {
         match attribute.key {
             b"name" => name = Some(attribute.value.into_owned()),
             b"datatype" => datatype = Some(DataType::parse_bytes(&attribute.value)?),
-            b"arraysize" => {
-                return Err(Error::parse("Array types not supported"))
-            }
+            b"arraysize" => return Err(Error::parse("Array types not supported")),
             _ => (),
         }
     }
@@ -151,7 +148,7 @@ impl<R: Read> VotableReader<R> {
         Ok(Some(RecordAccessor {
             mask: (&self.buffer[..self.mask_width]).view_bits(),
             field_types: &self.field_types,
-            field_offsets: Cow::from(&self.field_offsets),
+            field_offsets: &self.field_offsets,
             data: &self.buffer[self.mask_width..],
         }))
     }
@@ -160,7 +157,7 @@ impl<R: Read> VotableReader<R> {
 pub struct RecordAccessor<'a> {
     mask: &'a BitSlice<Msb0, u8>,
     field_types: &'a [DataType],
-    field_offsets: Cow<'a, [usize]>,
+    field_offsets: &'a [usize],
     data: &'a [u8],
 }
 
@@ -175,8 +172,9 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some((&self.data[offset..offset + std::mem::size_of::<i16>()])
-            .read_i16::<BigEndian>()?))
+        Ok(Some(
+            (&self.data[offset..offset + std::mem::size_of::<i16>()]).read_i16::<BigEndian>()?,
+        ))
     }
 
     pub fn read_i32(&self, ordinal: usize) -> Result<Option<i32>, Error> {
@@ -189,8 +187,9 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some((&self.data[offset..offset + std::mem::size_of::<i32>()])
-            .read_i32::<BigEndian>()?))
+        Ok(Some(
+            (&self.data[offset..offset + std::mem::size_of::<i32>()]).read_i32::<BigEndian>()?,
+        ))
     }
 
     pub fn read_i64(&self, ordinal: usize) -> Result<Option<i64>, Error> {
@@ -203,8 +202,9 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some((&self.data[offset..offset + std::mem::size_of::<i64>()])
-            .read_i64::<BigEndian>()?))
+        Ok(Some(
+            (&self.data[offset..offset + std::mem::size_of::<i64>()]).read_i64::<BigEndian>()?,
+        ))
     }
 
     pub fn read_f32(&self, ordinal: usize) -> Result<Option<f32>, Error> {
@@ -217,8 +217,9 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some((&self.data[offset..offset + std::mem::size_of::<f32>()])
-            .read_f32::<BigEndian>()?))
+        Ok(Some(
+            (&self.data[offset..offset + std::mem::size_of::<f32>()]).read_f32::<BigEndian>()?,
+        ))
     }
 
     pub fn read_f64(&self, ordinal: usize) -> Result<Option<f64>, Error> {
@@ -231,8 +232,9 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some((&self.data[offset..offset + std::mem::size_of::<f64>()])
-            .read_f64::<BigEndian>()?))
+        Ok(Some(
+            (&self.data[offset..offset + std::mem::size_of::<f64>()]).read_f64::<BigEndian>()?,
+        ))
     }
 }
 
@@ -311,5 +313,24 @@ impl<R: BufRead> BufRead for Binary2Reader<R> {
 
     fn consume(&mut self, amt: usize) {
         self.position += amt;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn binary2_read() {
+        let source: &[u8] = b"AgMFBwsNERMXHR8l\nKSsvNTs9Q0c=\n</STREAM>";
+        let expected = [
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+        ];
+        let buf_reader = BufReader::with_capacity(5, source);
+        let mut reader = Binary2Reader::new(buf_reader);
+        let mut actual = Vec::new();
+        let length = reader.read_to_end(&mut actual).unwrap();
+        assert_eq!(length, 20);
+        assert_eq!(&expected, actual.as_slice());
     }
 }

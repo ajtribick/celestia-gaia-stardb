@@ -6,6 +6,7 @@ use std::{
 use globset::Glob;
 use pyo3::{prelude::*, wrap_pyfunction};
 
+mod astro;
 mod error;
 mod votable;
 
@@ -14,7 +15,9 @@ use votable::VotableReader;
 
 #[pyfunction]
 fn check_hip_ids(gaia_dir: String) -> PyResult<()> {
-    let pattern = Glob::new("**/gaiaedr3-hip2-*.vot.gz").map_err(Error::new)?.compile_matcher();
+    let pattern = Glob::new("**/gaiaedr3-hip2-*.vot.gz")
+        .map_err(Error::new)?
+        .compile_matcher();
     let mut hip_to_gaia: HashMap<i32, Vec<i64>> = HashMap::new();
     let mut gaia_to_hip: HashMap<i64, Vec<i32>> = HashMap::new();
     for entry_result in read_dir(gaia_dir)? {
@@ -39,8 +42,14 @@ fn check_hip_ids(gaia_dir: String) -> PyResult<()> {
         while let Some(accessor) = reader.read()? {
             let hip = accessor.read_i32(hip_ordinal)?.unwrap();
             let source_id = accessor.read_i64(gaia_ordinal)?.unwrap();
-            hip_to_gaia.entry(hip).and_modify(|v| v.push(source_id)).or_insert(vec![source_id]);
-            gaia_to_hip.entry(source_id).and_modify(|v| v.push(hip)).or_insert(vec![hip]);
+            hip_to_gaia
+                .entry(hip)
+                .and_modify(|v| v.push(source_id))
+                .or_insert(vec![source_id]);
+            gaia_to_hip
+                .entry(source_id)
+                .and_modify(|v| v.push(hip))
+                .or_insert(vec![hip]);
         }
     }
 
