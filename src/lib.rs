@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, HashSet}, fs::{read_dir, File}, path::Path};
+use std::{
+    collections::HashSet,
+    fs::{read_dir, File},
+};
 
 use globset::Glob;
 use pyo3::{prelude::*, wrap_pyfunction};
@@ -11,9 +14,7 @@ mod xmatch;
 use crate::{
     error::Error,
     votable::VotableReader,
-    xmatch::{
-        GaiaId, GaiaOrdinals, GaiaStar, HipId, HipOrdinals, HipStar, TycId, TycOrdinals, TycStar,
-    },
+    xmatch::{GaiaOrdinals, GaiaStar, HipOrdinals, HipStar, TycOrdinals, TycStar},
 };
 
 #[pyfunction]
@@ -22,8 +23,8 @@ fn check_hip_ids(gaia_dir: String) -> PyResult<()> {
         .map_err(Error::new)?
         .compile_matcher();
     let mut hip_ids = HashSet::new();
+    let mut gaia_ids = HashSet::new();
     let mut matches = Vec::new();
-    let mut gaia_to_hip: HashMap<GaiaId, Vec<HipId>> = HashMap::new();
     for entry_result in read_dir(gaia_dir)? {
         let entry = entry_result?;
         if !entry.metadata()?.is_file() {
@@ -45,19 +46,18 @@ fn check_hip_ids(gaia_dir: String) -> PyResult<()> {
             let score = hip_star.score(&gaia_star);
 
             hip_ids.insert(hip_star.hip);
+            gaia_ids.insert(gaia_star.source_id);
             matches.push((hip_star.hip, gaia_star.source_id, score));
-            gaia_to_hip
-                .entry(gaia_star.source_id)
-                .and_modify(|v| v.push(hip_star.hip))
-                .or_insert(vec![hip_star.hip]);
         }
     }
 
     println!("Found {} distinct HIP stars", hip_ids.len());
-    matches.sort_by(|(_, _, a), (_, _, b)| a.partial_cmp(b).unwrap());
-    matches.into_iter().for_each(|(h, _, _)| {
-        hip_ids.remove(&h);
-    });
+    matches.sort_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
+    while let Some((hip, gaia, _)) = matches.pop() {
+        if gaia_ids.contains(&gaia) && hip_ids.remove(&hip) {
+            gaia_ids.remove(&gaia);
+        }
+    }
 
     println!("{} unmatched", hip_ids.len());
 
@@ -70,8 +70,8 @@ fn check_tyc_ids(gaia_dir: String) -> PyResult<()> {
         .map_err(Error::new)?
         .compile_matcher();
     let mut tyc_ids = HashSet::new();
+    let mut gaia_ids = HashSet::new();
     let mut matches = Vec::new();
-    let mut gaia_to_tyc: HashMap<GaiaId, Vec<TycId>> = HashMap::new();
     for entry_result in read_dir(gaia_dir)? {
         let entry = entry_result?;
         if !entry.metadata()?.is_file() {
@@ -93,19 +93,18 @@ fn check_tyc_ids(gaia_dir: String) -> PyResult<()> {
             let score = tyc_star.score(&gaia_star);
 
             tyc_ids.insert(tyc_star.tyc);
+            gaia_ids.insert(gaia_star.source_id);
             matches.push((tyc_star.tyc, gaia_star.source_id, score));
-            gaia_to_tyc
-                .entry(gaia_star.source_id)
-                .and_modify(|v| v.push(tyc_star.tyc))
-                .or_insert(vec![tyc_star.tyc]);
         }
     }
 
     println!("Found {} distinct TYC stars", tyc_ids.len());
-    matches.sort_by(|(_, _, a), (_, _, b)| a.partial_cmp(b).unwrap());
-    matches.into_iter().for_each(|(h, _, _)| {
-        tyc_ids.remove(&h);
-    });
+    matches.sort_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
+    while let Some((tyc, gaia, _)) = matches.pop() {
+        if gaia_ids.contains(&gaia) && tyc_ids.remove(&tyc) {
+            gaia_ids.remove(&gaia);
+        }
+    }
 
     println!("{} unmatched", tyc_ids.len());
 
