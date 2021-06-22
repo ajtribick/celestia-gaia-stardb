@@ -33,7 +33,11 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Parse(s) => write!(f, "Parser failure: {}", s),
-            Self::FieldType(o, e, a) => write!(f, "Field {} type mismatch (expected {}, actual {})", o, e, a),
+            Self::FieldType(o, e, a) => write!(
+                f,
+                "Field {} type mismatch (expected {}, actual {})",
+                o, e, a
+            ),
             Self::MissingField(s) => write!(f, "Missing field {}", String::from_utf8_lossy(s)),
             Self::Io(e) => write!(f, "Io error: {}", e),
             Self::Xml(e) => write!(f, "XML error: {}", e),

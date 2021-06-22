@@ -1,8 +1,8 @@
 use std::{
     cmp,
     collections::HashMap,
-    io::{self, BufRead, BufReader, ErrorKind, Read},
     fmt,
+    io::{self, BufRead, BufReader, ErrorKind, Read},
 };
 
 use bitvec::prelude::*;
@@ -144,7 +144,10 @@ impl<R: Read> VotableReader<R> {
     }
 
     pub fn ordinal(&self, name: &[u8]) -> Result<usize, Error> {
-        self.field_names.get(name).copied().ok_or_else(|| Error::MissingField(name.to_vec()))
+        self.field_names
+            .get(name)
+            .copied()
+            .ok_or_else(|| Error::MissingField(name.to_vec()))
     }
 
     pub fn read(&mut self) -> Result<Option<RecordAccessor>, Error> {
