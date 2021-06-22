@@ -10,6 +10,7 @@ pub enum Error {
     Parse(&'static str),
     FieldType(usize, DataType, DataType),
     MissingField(Vec<u8>),
+    MissingId(String),
     Io(io::Error),
     Xml(quick_xml::Error),
     Other(Box<dyn error::Error + Send + Sync>),
@@ -27,6 +28,10 @@ impl Error {
     pub fn new(error: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
         Self::Other(error.into())
     }
+
+    pub fn missing_id(id_type: &str) -> Self {
+        Self::MissingId(id_type.into())
+    }
 }
 
 impl fmt::Display for Error {
@@ -39,6 +44,7 @@ impl fmt::Display for Error {
                 o, e, a
             ),
             Self::MissingField(s) => write!(f, "Missing field {}", String::from_utf8_lossy(s)),
+            Self::MissingId(s) => write!(f, "Missing ID ({})", s),
             Self::Io(e) => write!(f, "Io error: {}", e),
             Self::Xml(e) => write!(f, "XML error: {}", e),
             Self::Other(e) => write!(f, "Error: {}", e),

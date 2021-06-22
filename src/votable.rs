@@ -3,6 +3,7 @@ use std::{
     collections::HashMap,
     fmt,
     io::{self, BufRead, BufReader, ErrorKind, Read},
+    num::NonZeroUsize,
 };
 
 use bitvec::prelude::*;
@@ -24,6 +25,7 @@ pub enum DataType {
     Long,
     Float,
     Double,
+    Char,
 }
 
 impl DataType {
@@ -34,17 +36,19 @@ impl DataType {
             b"long" => Ok(Self::Long),
             b"float" => Ok(Self::Float),
             b"double" => Ok(Self::Double),
+            b"char" => Ok(Self::Char),
             _ => Err(Error::parse("Unsupported data type")),
         }
     }
 
-    fn width(&self) -> usize {
+    fn width(&self) -> Option<NonZeroUsize> {
         match self {
-            Self::Short => 2,
-            Self::Int => 4,
-            Self::Long => 8,
-            Self::Float => 4,
-            Self::Double => 8,
+            Self::Short => NonZeroUsize::new(2),
+            Self::Int => NonZeroUsize::new(4),
+            Self::Long => NonZeroUsize::new(8),
+            Self::Float => NonZeroUsize::new(4),
+            Self::Double => NonZeroUsize::new(8),
+            Self::Char => None,
         }
     }
 }
@@ -57,6 +61,7 @@ impl fmt::Display for DataType {
             Self::Long => f.write_str("Long"),
             Self::Float => f.write_str("Float"),
             Self::Double => f.write_str("Double"),
+            Self::Char => f.write_str("Char"),
         }
     }
 }
@@ -64,19 +69,31 @@ impl fmt::Display for DataType {
 fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), Error> {
     let mut name = None;
     let mut datatype = None;
+    let mut is_variable_length_array = false;
     for attribute_result in attributes {
         let attribute = attribute_result?;
         match attribute.key {
             b"name" => name = Some(attribute.value.into_owned()),
             b"datatype" => datatype = Some(DataType::parse_bytes(&attribute.value)?),
-            b"arraysize" => return Err(Error::parse("Array types not supported")),
+            b"arraysize" => {
+                if attribute.value.as_ref() == b"*" {
+                    is_variable_length_array = true;
+                } else {
+                    return Err(Error::parse("Fixed size arrays not supported"));
+                }
+            }
             _ => (),
         }
     }
 
     match (name, datatype) {
+        (Some(n), Some(DataType::Char)) if is_variable_length_array => Ok((n, DataType::Char)),
+        (Some(_), Some(DataType::Char)) => Err(Error::parse("Char fields not supported")),
+        (Some(_), Some(_)) if is_variable_length_array => {
+            Err(Error::parse("Non-string arrays not supported"))
+        }
         (Some(n), Some(dt)) => Ok((n, dt)),
-        _ => Err(Error::parse("Field missing name and datatype")),
+        _ => Err(Error::parse("Field must have name and datatype")),
     }
 }
 
@@ -86,6 +103,7 @@ pub struct VotableReader<R: Read> {
     field_offsets: Vec<usize>,
     field_names: HashMap<Vec<u8>, usize>,
     mask_width: usize,
+    has_dynamic_lengths: bool,
     buffer: Vec<u8>,
 }
 
@@ -98,6 +116,7 @@ impl<R: Read> VotableReader<R> {
         let mut ns_buf = Vec::with_capacity(256);
         let mut field_names = HashMap::new();
         let mut field_types = Vec::new();
+        let mut has_dynamic_lengths = false;
         let mut field_offsets = Vec::new();
         let mut offset = 0;
         let mut is_binary2 = false;
@@ -108,7 +127,13 @@ impl<R: Read> VotableReader<R> {
                         let (name, data_type) = parse_field(e.attributes())?;
                         field_names.insert(name, field_names.len());
                         field_offsets.push(offset);
-                        offset += data_type.width();
+                        match data_type.width() {
+                            Some(w) => offset += w.get(),
+                            None => {
+                                has_dynamic_lengths = true;
+                                offset += 4;
+                            }
+                        }
                         field_types.push(data_type);
                     }
                     b"BINARY2" => is_binary2 = true,
@@ -139,6 +164,7 @@ impl<R: Read> VotableReader<R> {
             field_offsets,
             field_names,
             mask_width,
+            has_dynamic_lengths,
             buffer: vec![0; mask_width + offset],
         })
     }
@@ -151,10 +177,31 @@ impl<R: Read> VotableReader<R> {
     }
 
     pub fn read(&mut self) -> Result<Option<RecordAccessor>, Error> {
+        let has_record = if self.has_dynamic_lengths {
+            self.read_dynamic()?
+        } else {
+            self.read_fixed()?
+        };
+
+        let result = if has_record {
+            Some(RecordAccessor {
+                mask: (&self.buffer[..self.mask_width]).view_bits(),
+                field_types: &self.field_types,
+                field_offsets: &self.field_offsets,
+                data: &self.buffer[self.mask_width..],
+            })
+        } else {
+            None
+        };
+
+        Ok(result)
+    }
+
+    fn read_fixed(&mut self) -> Result<bool, Error> {
         let mut length = 0;
         while length < self.buffer.len() {
             length += match self.reader.read(&mut self.buffer[length..]) {
-                Ok(0) if length == 0 => return Ok(None),
+                Ok(0) if length == 0 => return Ok(false),
                 Ok(0) => return Err(Error::Io(ErrorKind::UnexpectedEof.into())),
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
@@ -162,12 +209,47 @@ impl<R: Read> VotableReader<R> {
             };
         }
 
-        Ok(Some(RecordAccessor {
-            mask: (&self.buffer[..self.mask_width]).view_bits(),
-            field_types: &self.field_types,
-            field_offsets: &self.field_offsets,
-            data: &self.buffer[self.mask_width..],
-        }))
+        Ok(true)
+    }
+
+    fn read_dynamic(&mut self) -> Result<bool, Error> {
+        let mut length = 0;
+        self.buffer.resize(self.mask_width, 0);
+        while length < self.mask_width {
+            length += match self.reader.read(&mut self.buffer[length..]) {
+                Ok(0) if length == 0 => return Ok(false),
+                Ok(0) => return Err(Error::Io(ErrorKind::UnexpectedEof.into())),
+                Ok(n) => n,
+                Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e.into()),
+            };
+        }
+
+        let mut position = self.buffer.len();
+        for (field_type, field_offset) in self.field_types.iter().zip(self.field_offsets.iter_mut())
+        {
+            *field_offset = position - self.mask_width;
+            match field_type.width() {
+                Some(w) => {
+                    self.buffer.resize(position + w.get(), 0);
+                    self.reader.read_exact(&mut self.buffer[position..])?;
+                    position += w.get();
+                }
+                None => {
+                    self.buffer.resize(position + std::mem::size_of::<u32>(), 0);
+                    self.reader.read_exact(&mut self.buffer[position..])?;
+                    let length = (&self.buffer[position..]).read_u32::<BigEndian>()? as usize;
+                    position += std::mem::size_of::<u32>();
+                    if length > 0 {
+                        self.buffer.resize(position + length, 0);
+                        self.reader.read_exact(&mut self.buffer[position..])?;
+                        position += length;
+                    }
+                }
+            }
+        }
+
+        Ok(true)
     }
 }
 
