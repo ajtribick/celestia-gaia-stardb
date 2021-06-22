@@ -2,6 +2,7 @@ use std::{
     cmp,
     collections::HashMap,
     io::{self, BufRead, BufReader, ErrorKind, Read},
+    fmt,
 };
 
 use bitvec::prelude::*;
@@ -16,7 +17,8 @@ use super::error::Error;
 
 const VOTABLE_NS: &[u8] = b"http://www.ivoa.net/xml/VOTable/v1.3";
 
-enum DataType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataType {
     Short,
     Int,
     Long,
@@ -43,6 +45,18 @@ impl DataType {
             Self::Long => 8,
             Self::Float => 4,
             Self::Double => 8,
+        }
+    }
+}
+
+impl fmt::Display for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Short => f.write_str("Short"),
+            Self::Int => f.write_str("Int"),
+            Self::Long => f.write_str("Long"),
+            Self::Float => f.write_str("Float"),
+            Self::Double => f.write_str("Double"),
         }
     }
 }
@@ -129,8 +143,8 @@ impl<R: Read> VotableReader<R> {
         })
     }
 
-    pub fn ordinal(&self, name: &[u8]) -> Option<usize> {
-        self.field_names.get(name).copied()
+    pub fn ordinal(&self, name: &[u8]) -> Result<usize, Error> {
+        self.field_names.get(name).copied().ok_or_else(|| Error::MissingField(name.to_vec()))
     }
 
     pub fn read(&mut self) -> Result<Option<RecordAccessor>, Error> {
@@ -163,8 +177,9 @@ pub struct RecordAccessor<'a> {
 
 impl<'a> RecordAccessor<'a> {
     pub fn read_i16(&self, ordinal: usize) -> Result<Option<i16>, Error> {
-        if !matches!(self.field_types[ordinal], DataType::Short) {
-            return Err(Error::field_type("Field type mismatch"));
+        let field_type = self.field_types[ordinal];
+        if field_type != DataType::Short {
+            return Err(Error::field_type(ordinal, DataType::Short, field_type));
         }
 
         if self.mask[ordinal] {
@@ -178,8 +193,9 @@ impl<'a> RecordAccessor<'a> {
     }
 
     pub fn read_i32(&self, ordinal: usize) -> Result<Option<i32>, Error> {
-        if !matches!(self.field_types[ordinal], DataType::Int) {
-            return Err(Error::field_type("Field type mismatch"));
+        let field_type = self.field_types[ordinal];
+        if field_type != DataType::Int {
+            return Err(Error::field_type(ordinal, DataType::Int, field_type));
         }
 
         if self.mask[ordinal] {
@@ -193,8 +209,9 @@ impl<'a> RecordAccessor<'a> {
     }
 
     pub fn read_i64(&self, ordinal: usize) -> Result<Option<i64>, Error> {
-        if !matches!(self.field_types[ordinal], DataType::Long) {
-            return Err(Error::field_type("Field type mismatch"));
+        let field_type = self.field_types[ordinal];
+        if field_type != DataType::Long {
+            return Err(Error::field_type(ordinal, DataType::Long, field_type));
         }
 
         if self.mask[ordinal] {
@@ -207,34 +224,32 @@ impl<'a> RecordAccessor<'a> {
         ))
     }
 
-    pub fn read_f32(&self, ordinal: usize) -> Result<Option<f32>, Error> {
-        if !matches!(self.field_types[ordinal], DataType::Float) {
-            return Err(Error::field_type("Field type mismatch"));
+    pub fn read_f32(&self, ordinal: usize) -> Result<f32, Error> {
+        let field_type = self.field_types[ordinal];
+        if field_type != DataType::Float {
+            return Err(Error::field_type(ordinal, DataType::Float, field_type));
         }
 
         if self.mask[ordinal] {
-            return Ok(None);
+            return Ok(f32::NAN);
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some(
-            (&self.data[offset..offset + std::mem::size_of::<f32>()]).read_f32::<BigEndian>()?,
-        ))
+        Ok((&self.data[offset..offset + std::mem::size_of::<f32>()]).read_f32::<BigEndian>()?)
     }
 
-    pub fn read_f64(&self, ordinal: usize) -> Result<Option<f64>, Error> {
-        if !matches!(self.field_types[ordinal], DataType::Float) {
-            return Err(Error::field_type("Field type mismatch"));
+    pub fn read_f64(&self, ordinal: usize) -> Result<f64, Error> {
+        let field_type = self.field_types[ordinal];
+        if field_type != DataType::Double {
+            return Err(Error::field_type(ordinal, DataType::Double, field_type));
         }
 
         if self.mask[ordinal] {
-            return Ok(None);
+            return Ok(f64::NAN);
         }
 
         let offset = self.field_offsets[ordinal];
-        Ok(Some(
-            (&self.data[offset..offset + std::mem::size_of::<f64>()]).read_f64::<BigEndian>()?,
-        ))
+        Ok((&self.data[offset..offset + std::mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
     }
 }
 
