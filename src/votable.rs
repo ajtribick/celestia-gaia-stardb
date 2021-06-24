@@ -2,6 +2,7 @@ use std::{
     cmp,
     collections::HashMap,
     fmt,
+    hash::Hash,
     io::{self, BufRead, BufReader, ErrorKind, Read},
     num::NonZeroUsize,
 };
@@ -17,6 +18,18 @@ use quick_xml::{
 use super::error::Error;
 
 const VOTABLE_NS: &[u8] = b"http://www.ivoa.net/xml/VOTable/v1.3";
+
+pub trait Ordinals: Sized {
+    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error>;
+}
+
+pub trait VotableRecord: Sized {
+    type Ordinals: Ordinals;
+    type Id: Eq + Hash;
+
+    fn from_accessor(accessor: &RecordAccessor, ordinals: &Self::Ordinals) -> Result<Self, Error>;
+    fn id(&self) -> Self::Id;
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataType {

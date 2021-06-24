@@ -1,12 +1,20 @@
-use std::io::Read;
+use std::{collections::HashSet, hash::Hash, io::Read};
 
 use super::{
-    astro::{ProperMotion, SkyCoords, Squarable, MAS_TO_DEG},
+    astro::{ProperMotion, SkyCoords},
     error::Error,
-    votable::{RecordAccessor, VotableReader},
+    votable::{Ordinals, RecordAccessor, VotableReader, VotableRecord},
 };
 
-const HIP_EPOCH: f64 = 1991.25;
+mod hip;
+mod tyc;
+
+pub use hip::HipStar;
+pub use tyc::TycStar;
+
+pub trait Crossmatchable<C> {
+    fn score(&self, gaia_star: &C) -> f64;
+}
 
 #[derive(Debug)]
 pub struct GaiaOrdinals {
@@ -27,8 +35,8 @@ pub struct GaiaOrdinals {
     astrometric_params_solved: usize,
 }
 
-impl GaiaOrdinals {
-    pub fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
+impl Ordinals for GaiaOrdinals {
+    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
         Ok(Self {
             source_id: reader.ordinal(b"source_id")?,
             ra: reader.ordinal(b"ra")?,
@@ -68,11 +76,11 @@ pub struct GaiaStar {
     pub astrometric_params_solved: i16,
 }
 
-impl GaiaStar {
-    pub fn from_accessor(
-        accessor: &RecordAccessor,
-        ordinals: &GaiaOrdinals,
-    ) -> Result<Self, Error> {
+impl VotableRecord for GaiaStar {
+    type Ordinals = GaiaOrdinals;
+    type Id = GaiaId;
+
+    fn from_accessor(accessor: &RecordAccessor, ordinals: &GaiaOrdinals) -> Result<Self, Error> {
         Ok(Self {
             source_id: GaiaId(
                 accessor
@@ -103,256 +111,63 @@ impl GaiaStar {
                 .unwrap_or(0),
         })
     }
-}
 
-#[derive(Debug)]
-pub struct HipOrdinals {
-    hip: usize,
-    hip_ra: usize,
-    hip_dec: usize,
-    hp_mag: usize,
-}
-
-impl HipOrdinals {
-    pub fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
-        Ok(Self {
-            hip: reader.ordinal(b"hip")?,
-            hip_ra: reader.ordinal(b"hip_ra")?,
-            hip_dec: reader.ordinal(b"hip_dec")?,
-            hp_mag: reader.ordinal(b"hp_mag")?,
-        })
+    fn id(&self) -> Self::Id {
+        self.source_id
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct HipId(pub i32);
-
-#[derive(Debug)]
-pub struct HipStar {
-    pub hip: HipId,
-    pub coords: SkyCoords,
-    pub hp_mag: f64,
+pub struct Crossmatcher<A, B>
+where
+    A: VotableRecord + Crossmatchable<B>,
+    B: VotableRecord,
+{
+    source_ids: HashSet<A::Id>,
+    crossmatch_ids: HashSet<B::Id>,
+    matches: Vec<(A::Id, B::Id, f64)>,
 }
 
-impl HipStar {
-    pub fn from_accessor(accessor: &RecordAccessor, ordinals: &HipOrdinals) -> Result<Self, Error> {
-        Ok(Self {
-            hip: HipId(
-                accessor
-                    .read_i32(ordinals.hip)?
-                    .ok_or(Error::missing_id("hip"))?,
-            ),
-            coords: SkyCoords {
-                ra: accessor.read_f64(ordinals.hip_ra)?,
-                dec: accessor.read_f64(ordinals.hip_dec)?,
-            },
-            hp_mag: accessor.read_f64(ordinals.hp_mag)?,
-        })
+impl<A, B> Crossmatcher<A, B>
+where
+    A: VotableRecord + Crossmatchable<B>,
+    B: VotableRecord,
+{
+    pub fn new() -> Self {
+        Self {
+            source_ids: HashSet::new(),
+            crossmatch_ids: HashSet::new(),
+            matches: Vec::new(),
+        }
     }
 
-    pub fn score(&self, gaia_star: &GaiaStar) -> f64 {
-        let epoch_diff = gaia_star.epoch - HIP_EPOCH;
-        let rv = if gaia_star.rv.is_nan() {
-            0.0
-        } else {
-            gaia_star.rv
-        };
-        let parallax = f64::min(gaia_star.parallax, 0.01);
-        let pm = ProperMotion {
-            pm_ra: if gaia_star.pm.pm_ra.is_nan() {
-                0.0
-            } else {
-                gaia_star.pm.pm_ra
-            },
-            pm_dec: if gaia_star.pm.pm_dec.is_nan() {
-                0.0
-            } else {
-                gaia_star.pm.pm_dec
-            },
-        };
-        let propagated = gaia_star
-            .coords
-            .apply_pm(&pm, rv, parallax, gaia_star.epoch, HIP_EPOCH);
-        let dist = self.coords.ang_dist(&propagated);
-        assert!(
-            !dist.is_nan(),
-            "HIP {}, Gaia {}\n{:?}\n{:?}",
-            self.hip.0,
-            gaia_star.source_id.0,
-            self.coords,
-            propagated
-        );
+    pub fn add_reader(&mut self, mut reader: VotableReader<impl Read>) -> Result<(), Error> {
+        let source_ordinals = <A as VotableRecord>::Ordinals::from_reader(&reader)?;
+        let crossmatch_ordinals = <B as VotableRecord>::Ordinals::from_reader(&reader)?;
 
-        let calc_pm = ProperMotion {
-            pm_ra: (gaia_star.coords.ra - self.coords.ra) * gaia_star.coords.dec.cos() / epoch_diff
-                * MAS_TO_DEG,
-            pm_dec: (gaia_star.coords.dec - self.coords.dec) / epoch_diff * MAS_TO_DEG,
-        };
+        while let Some(accessor) = reader.read()? {
+            let source_star = A::from_accessor(&accessor, &source_ordinals)?;
+            let crossmatch_star = B::from_accessor(&accessor, &crossmatch_ordinals)?;
+            let score = source_star.score(&crossmatch_star);
 
-        let e_pm = ProperMotion {
-            pm_ra: f64::min(gaia_star.e_pm.pm_ra, 0.001),
-            pm_dec: f64::min(gaia_star.e_pm.pm_dec, 0.001),
-        };
-        let pm_diff = ((calc_pm.pm_ra - pm.pm_ra) / e_pm.pm_ra).sqr()
-            + ((calc_pm.pm_dec - pm.pm_dec) / e_pm.pm_dec).sqr();
-        assert!(!pm_diff.is_nan());
+            self.source_ids.insert(source_star.id());
+            self.crossmatch_ids.insert(crossmatch_star.id());
+            self.matches
+                .push((source_star.id(), crossmatch_star.id(), score));
+        }
 
-        let bp_mag = if gaia_star.phot_bp_mean_mag.is_nan() {
-            gaia_star.phot_g_mean_mag
-        } else {
-            gaia_star.phot_bp_mean_mag
-        };
-        let rp_mag = if gaia_star.phot_rp_mean_mag.is_nan() {
-            gaia_star.phot_g_mean_mag
-        } else {
-            gaia_star.phot_rp_mean_mag
-        };
-        let mag_diff = self.hp_mag - (0.91 * bp_mag + 0.09 * rp_mag) as f64;
-        assert!(!mag_diff.is_nan());
-
-        pm_diff + (mag_diff / 0.1).sqr() + (dist / MAS_TO_DEG).sqr()
-    }
-}
-
-#[derive(Debug)]
-pub struct TycOrdinals {
-    id_tycho: usize,
-    ra_deg: usize,
-    de_deg: usize,
-    bt_mag: usize,
-    vt_mag: usize,
-    ep_ra1990: usize,
-    ep_de1990: usize,
-}
-
-impl TycOrdinals {
-    pub fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
-        Ok(Self {
-            id_tycho: reader.ordinal(b"id_tycho")?,
-            ra_deg: reader.ordinal(b"tyc_ra")?,
-            de_deg: reader.ordinal(b"tyc_dec")?,
-            bt_mag: reader.ordinal(b"bt_mag")?,
-            vt_mag: reader.ordinal(b"vt_mag")?,
-            ep_ra1990: reader.ordinal(b"ep_ra1990")?,
-            ep_de1990: reader.ordinal(b"ep_de1990")?,
-        })
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct TycId(pub i64);
-
-#[derive(Debug)]
-pub struct TycStar {
-    pub tyc: TycId,
-    pub coords: SkyCoords,
-    pub bt_mag: f32,
-    pub vt_mag: f32,
-    pub epoch_ra: f64,
-    pub epoch_dec: f64,
-}
-
-fn g_vt(bp_rp: f32) -> f32 {
-    -0.01077 + bp_rp * (-0.0682 + bp_rp * (-0.2387 + bp_rp * 0.02342))
-}
-
-fn g_bt(bp_rp: f32) -> f32 {
-    -0.004288
-        + bp_rp
-            * (-0.8547 + bp_rp * (0.1244 + bp_rp * (-0.9085 + bp_rp * (0.4843 + bp_rp * -0.06814))))
-}
-
-impl TycStar {
-    pub fn from_accessor(accessor: &RecordAccessor, ordinals: &TycOrdinals) -> Result<Self, Error> {
-        Ok(Self {
-            tyc: TycId(
-                accessor
-                    .read_i64(ordinals.id_tycho)?
-                    .ok_or(Error::missing_id("id_tycho"))?,
-            ),
-            coords: SkyCoords {
-                ra: accessor.read_f64(ordinals.ra_deg)?,
-                dec: accessor.read_f64(ordinals.de_deg)?,
-            },
-            bt_mag: accessor.read_f32(ordinals.bt_mag)?,
-            vt_mag: accessor.read_f32(ordinals.vt_mag)?,
-            epoch_ra: accessor.read_f32(ordinals.ep_ra1990)? as f64 + 1990.0,
-            epoch_dec: accessor.read_f32(ordinals.ep_de1990)? as f64 + 1990.0,
-        })
+        Ok(())
     }
 
-    pub fn score(&self, gaia_star: &GaiaStar) -> f64 {
-        let mean_epoch = self.epoch_ra * 0.5 + self.epoch_dec * 0.5;
-        let epoch_diff = gaia_star.epoch - mean_epoch;
-        let rv = if gaia_star.rv.is_nan() {
-            0.0
-        } else {
-            gaia_star.rv
-        };
-        let parallax = f64::min(gaia_star.parallax, 0.01);
-        let pm = ProperMotion {
-            pm_ra: if gaia_star.pm.pm_ra.is_nan() {
-                0.0
-            } else {
-                gaia_star.pm.pm_ra
-            },
-            pm_dec: if gaia_star.pm.pm_dec.is_nan() {
-                0.0
-            } else {
-                gaia_star.pm.pm_dec
-            },
-        };
-        let propagated = gaia_star
-            .coords
-            .apply_pm(&pm, rv, parallax, gaia_star.epoch, mean_epoch);
-        let dist = self.coords.ang_dist(&propagated);
-        assert!(
-            !dist.is_nan(),
-            "TYC {}, Gaia {}\n{:?}\n{:?}",
-            self.tyc.0,
-            gaia_star.source_id.0,
-            self.coords,
-            propagated
-        );
+    pub fn finalize(&mut self) {
+        println!("Found {} distinct source stars", self.source_ids.len());
+        self.matches
+            .sort_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
+        while let Some((hip, gaia, _)) = self.matches.pop() {
+            if self.crossmatch_ids.contains(&gaia) && self.source_ids.remove(&hip) {
+                self.crossmatch_ids.remove(&gaia);
+            }
+        }
 
-        let calc_pm = ProperMotion {
-            pm_ra: (gaia_star.coords.ra - self.coords.ra) * gaia_star.coords.dec.cos() / epoch_diff
-                * MAS_TO_DEG,
-            pm_dec: (gaia_star.coords.dec - self.coords.dec) / epoch_diff * MAS_TO_DEG,
-        };
-
-        let e_pm = ProperMotion {
-            pm_ra: f64::min(gaia_star.e_pm.pm_ra, 0.001),
-            pm_dec: f64::min(gaia_star.e_pm.pm_dec, 0.001),
-        };
-        let pm_diff = ((calc_pm.pm_ra - pm.pm_ra) / e_pm.pm_ra).sqr()
-            + ((calc_pm.pm_dec - pm.pm_dec) / e_pm.pm_dec).sqr();
-        assert!(!pm_diff.is_nan());
-
-        let bp_mag = if gaia_star.phot_bp_mean_mag.is_nan() {
-            gaia_star.phot_g_mean_mag
-        } else {
-            gaia_star.phot_bp_mean_mag
-        };
-        let rp_mag = if gaia_star.phot_rp_mean_mag.is_nan() {
-            gaia_star.phot_g_mean_mag
-        } else {
-            gaia_star.phot_rp_mean_mag
-        };
-
-        let bp_rp = bp_mag - rp_mag;
-
-        let idx_diff = if self.bt_mag.is_nan() {
-            gaia_star.phot_g_mean_mag - self.vt_mag - g_vt(bp_rp)
-        } else if self.vt_mag.is_nan() {
-            gaia_star.phot_g_mean_mag - self.bt_mag - g_bt(bp_rp)
-        } else {
-            gaia_star.phot_g_mean_mag
-                - (self.vt_mag + self.bt_mag + g_vt(bp_rp) + g_bt(bp_rp)) / 2.0
-        };
-
-        assert!(!idx_diff.is_nan());
-
-        pm_diff + (idx_diff as f64 / 0.06).sqr() + (dist / MAS_TO_DEG).sqr()
+        println!("{} unmatched", self.source_ids.len());
     }
 }
