@@ -34,7 +34,7 @@ impl SkyCoords {
     // basic linear motion, not accounting for light travel time
     pub fn apply_pm(
         &self,
-        pm: &ProperMotion,
+        pm: &ProperMotion<f64>,
         rv: f64,
         parallax: f64,
         epoch1: f64,
@@ -59,9 +59,9 @@ impl SkyCoords {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ProperMotion {
-    pub pm_ra: f64,
-    pub pm_dec: f64,
+pub struct ProperMotion<F> {
+    pub pm_ra: F,
+    pub pm_dec: F,
 }
 
 #[cfg(test)]

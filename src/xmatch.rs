@@ -1,9 +1,17 @@
-use std::{collections::HashSet, hash::Hash, io::Read};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    hash::Hash,
+    io::{Read, Write},
+};
+
+use lazy_static::lazy_static;
+
+use crate::votable::FieldInfo;
 
 use super::{
     astro::{ProperMotion, SkyCoords},
     error::Error,
-    votable::{Ordinals, RecordAccessor, VotableReader, VotableRecord},
+    votable::{Ordinals, RecordAccessor, VotableReader, VotableRecord, VotableWriter},
 };
 
 mod hip;
@@ -65,15 +73,125 @@ pub struct GaiaStar {
     pub source_id: GaiaId,
     pub coords: SkyCoords,
     pub parallax: f64,
-    pub parallax_error: f64,
-    pub rv: f64,
+    pub parallax_error: f32,
+    pub rv: f32,
     pub epoch: f64,
-    pub pm: ProperMotion,
-    pub e_pm: ProperMotion,
+    pub pm: ProperMotion<f64>,
+    pub e_pm: ProperMotion<f32>,
     pub phot_g_mean_mag: f32,
     pub phot_bp_mean_mag: f32,
     pub phot_rp_mean_mag: f32,
     pub astrometric_params_solved: i16,
+}
+
+lazy_static! {
+    static ref GAIA_FIELDS: [FieldInfo<GaiaStar>; 15] = [
+        FieldInfo::long(
+            "source_id",
+            None,
+            Some("meta.id"),
+            "Unique source identifier (unique within a particular Data Release",
+            |g| Some(g.source_id.0)
+        ),
+        FieldInfo::double(
+            "ra",
+            Some("deg"),
+            Some("pos.eq.ra;meta.main"),
+            "Right ascension",
+            |g| g.coords.ra
+        ),
+        FieldInfo::double(
+            "dec",
+            Some("deg"),
+            Some("pos.eq.dec;meta.main"),
+            "Declination",
+            |g| g.coords.dec
+        ),
+        FieldInfo::double(
+            "parallax",
+            Some("mas"),
+            Some("pos.parallax.trig"),
+            "Parallax",
+            |g| g.parallax
+        ),
+        FieldInfo::float(
+            "parallax_error",
+            Some("mas"),
+            Some("stat.error;pos.parallax.trig"),
+            "Standard error of parallax",
+            |g| g.parallax_error
+        ),
+        FieldInfo::float(
+            "dr2_radial_velocity",
+            Some("km.s**-1"),
+            Some("spect.dopplerVeloc.opt;em.opt.I"),
+            "Radial velocity from Gaia DR2",
+            |g| g.rv
+        ),
+        FieldInfo::double(
+            "ref_epoch",
+            Some("yr"),
+            Some("meta.ref;time.epoch"),
+            "Reference epoch",
+            |g| g.epoch
+        ),
+        FieldInfo::double(
+            "pmra",
+            Some("mas.yr**-1"),
+            Some("pos.pm;pos.eq.ra"),
+            "Proper motion in right ascension direction",
+            |g| g.pm.pm_ra
+        ),
+        FieldInfo::float(
+            "pmra_error",
+            Some("mas.yr**-1"),
+            Some("stat.error;pos.pm;pos.eq.ra"),
+            "Standard error of proper motion in right ascension direction",
+            |g| g.e_pm.pm_ra
+        ),
+        FieldInfo::double(
+            "pmdec",
+            Some("mas.yr**-1"),
+            Some("pos.pm;pos.eq.dec"),
+            "Proper motion in declination direction",
+            |g| g.pm.pm_dec
+        ),
+        FieldInfo::float(
+            "pmdec_error",
+            Some("mas.yr**-1"),
+            Some("stat.error;pos.pm;pos.eq.dec"),
+            "Standard error of proper motion in declination direction",
+            |g| g.e_pm.pm_dec
+        ),
+        FieldInfo::float(
+            "phot_g_mean_mag",
+            Some("mag"),
+            Some("phot.mag;em.opt"),
+            "G-band mean magnitude",
+            |g| g.phot_g_mean_mag
+        ),
+        FieldInfo::float(
+            "phot_bp_mean_mag",
+            Some("mag"),
+            Some("phot.mag;em.opt.B"),
+            "Integrated BP mean magnitude",
+            |g| g.phot_bp_mean_mag
+        ),
+        FieldInfo::float(
+            "phot_rp_mean_mag",
+            Some("mag"),
+            Some("phot.mag;em.opt.R"),
+            "Integrated RP mean magnitude",
+            |g| g.phot_rp_mean_mag
+        ),
+        FieldInfo::short(
+            "astrometric_params_solved",
+            None,
+            Some("meta.number"),
+            "Which parameters have been solved for?",
+            |g| Some(g.astrometric_params_solved)
+        ),
+    ];
 }
 
 impl VotableRecord for GaiaStar {
@@ -92,16 +210,16 @@ impl VotableRecord for GaiaStar {
                 dec: accessor.read_f64(ordinals.dec)?,
             },
             parallax: accessor.read_f64(ordinals.parallax)?,
-            parallax_error: accessor.read_f32(ordinals.parallax_error)? as f64,
-            rv: accessor.read_f32(ordinals.dr2_radial_velocity)? as f64,
+            parallax_error: accessor.read_f32(ordinals.parallax_error)?,
+            rv: accessor.read_f32(ordinals.dr2_radial_velocity)?,
             epoch: accessor.read_f64(ordinals.ref_epoch)?,
             pm: ProperMotion {
                 pm_ra: accessor.read_f64(ordinals.pm_ra)?,
                 pm_dec: accessor.read_f64(ordinals.pm_dec)?,
             },
             e_pm: ProperMotion {
-                pm_ra: accessor.read_f32(ordinals.pm_ra_error)? as f64,
-                pm_dec: accessor.read_f32(ordinals.pm_dec_error)? as f64,
+                pm_ra: accessor.read_f32(ordinals.pm_ra_error)?,
+                pm_dec: accessor.read_f32(ordinals.pm_dec_error)?,
             },
             phot_g_mean_mag: accessor.read_f32(ordinals.phot_g_mean_mag)?,
             phot_bp_mean_mag: accessor.read_f32(ordinals.phot_bp_mean_mag)?,
@@ -115,6 +233,10 @@ impl VotableRecord for GaiaStar {
     fn id(&self) -> Self::Id {
         self.source_id
     }
+
+    fn fields() -> &'static [FieldInfo<Self>] {
+        GAIA_FIELDS.as_ref()
+    }
 }
 
 pub struct Crossmatcher<A, B>
@@ -122,8 +244,8 @@ where
     A: VotableRecord + Crossmatchable<B>,
     B: VotableRecord,
 {
-    source_ids: HashSet<A::Id>,
-    crossmatch_ids: HashSet<B::Id>,
+    source_stars: HashMap<A::Id, A>,
+    crossmatch_stars: HashMap<B::Id, B>,
     matches: Vec<(A::Id, B::Id, f64)>,
 }
 
@@ -134,8 +256,8 @@ where
 {
     pub fn new() -> Self {
         Self {
-            source_ids: HashSet::new(),
-            crossmatch_ids: HashSet::new(),
+            source_stars: HashMap::new(),
+            crossmatch_stars: HashMap::new(),
             matches: Vec::new(),
         }
     }
@@ -146,28 +268,42 @@ where
 
         while let Some(accessor) = reader.read()? {
             let source_star = A::from_accessor(&accessor, &source_ordinals)?;
+            let source_id = source_star.id();
             let crossmatch_star = B::from_accessor(&accessor, &crossmatch_ordinals)?;
+            let crossmatch_id = crossmatch_star.id();
             let score = source_star.score(&crossmatch_star);
 
-            self.source_ids.insert(source_star.id());
-            self.crossmatch_ids.insert(crossmatch_star.id());
-            self.matches
-                .push((source_star.id(), crossmatch_star.id(), score));
+            self.source_stars.insert(source_id, source_star);
+            self.crossmatch_stars.insert(crossmatch_id, crossmatch_star);
+            self.matches.push((source_id, crossmatch_id, score));
         }
 
         Ok(())
     }
 
-    pub fn finalize(&mut self) {
-        println!("Found {} distinct source stars", self.source_ids.len());
+    pub fn finalize(mut self, writer: impl Write) -> Result<(), Error> {
+        println!("Found {} distinct source stars", self.source_stars.len());
         self.matches
-            .sort_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
-        while let Some((hip, gaia, _)) = self.matches.pop() {
-            if self.crossmatch_ids.contains(&gaia) && self.source_ids.remove(&hip) {
-                self.crossmatch_ids.remove(&gaia);
+            .sort_unstable_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
+
+        let mut writer = VotableWriter::new(writer)?;
+        writer.write_fields::<A>()?;
+        writer.write_fields::<B>()?;
+
+        while let Some((source_id, crossmatch_id, _)) = self.matches.pop() {
+            if let Entry::Occupied(entry) = self.crossmatch_stars.entry(crossmatch_id) {
+                if let Some(source_star) = self.source_stars.remove(&source_id) {
+                    let crossmatch_star = entry.remove();
+                    writer.add_data(&source_star)?;
+                    writer.add_data(&crossmatch_star)?;
+                    writer.write_row()?;
+                }
             }
         }
 
-        println!("{} unmatched", self.source_ids.len());
+        writer.finish()?;
+
+        println!("{} unmatched", self.source_stars.len());
+        Ok(())
     }
 }

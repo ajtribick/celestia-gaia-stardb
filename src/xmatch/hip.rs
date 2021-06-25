@@ -1,12 +1,13 @@
 use std::io::Read;
 
+use lazy_static::lazy_static;
+
+use super::{Crossmatchable, GaiaStar};
 use crate::{
     astro::{ProperMotion, SkyCoords, Squarable, MAS_TO_DEG},
     error::Error,
-    votable::{Ordinals, RecordAccessor, VotableReader, VotableRecord},
+    votable::{FieldInfo, Ordinals, RecordAccessor, VotableReader, VotableRecord},
 };
-
-use super::{Crossmatchable, GaiaStar};
 
 const HIP_EPOCH: f64 = 1991.25;
 
@@ -39,6 +40,28 @@ pub struct HipStar {
     pub hp_mag: f64,
 }
 
+lazy_static! {
+    static ref HIP_FIELDS: [FieldInfo<HipStar>; 4] = [
+        FieldInfo::int("hip", None, None, "Hipparcos identifier", |h| Some(h.hip.0)),
+        FieldInfo::double(
+            "hip_ra",
+            Some("deg"),
+            Some("pos.eq.ra;meta.main"),
+            "Right Ascension in ICRS, Ep=1991.25",
+            |g| g.coords.ra
+        ),
+        FieldInfo::double(
+            "hip_dec",
+            Some("deg"),
+            Some("pos.eq.dec;meta.main"),
+            "Declination in ICRS, Ep=1991.25",
+            |g| g.coords.dec
+        ),
+        FieldInfo::double("hp_mag", Some("mag"), None, "Hipparcos magnitude", |g| g
+            .hp_mag),
+    ];
+}
+
 impl VotableRecord for HipStar {
     type Ordinals = HipOrdinals;
     type Id = HipId;
@@ -60,6 +83,10 @@ impl VotableRecord for HipStar {
 
     fn id(&self) -> HipId {
         self.hip
+    }
+
+    fn fields() -> &'static [FieldInfo<Self>] {
+        HIP_FIELDS.as_ref()
     }
 }
 
@@ -84,9 +111,10 @@ impl Crossmatchable<GaiaStar> for HipStar {
                 gaia_star.pm.pm_dec
             },
         };
-        let propagated = gaia_star
-            .coords
-            .apply_pm(&pm, rv, parallax, gaia_star.epoch, HIP_EPOCH);
+        let propagated =
+            gaia_star
+                .coords
+                .apply_pm(&pm, rv as f64, parallax, gaia_star.epoch, HIP_EPOCH);
         let dist = self.coords.ang_dist(&propagated);
         assert!(
             !dist.is_nan(),
@@ -104,8 +132,8 @@ impl Crossmatchable<GaiaStar> for HipStar {
         };
 
         let e_pm = ProperMotion {
-            pm_ra: f64::min(gaia_star.e_pm.pm_ra, 0.001),
-            pm_dec: f64::min(gaia_star.e_pm.pm_dec, 0.001),
+            pm_ra: f64::min(gaia_star.e_pm.pm_ra as f64, 0.001),
+            pm_dec: f64::min(gaia_star.e_pm.pm_dec as f64, 0.001),
         };
         let pm_diff = ((calc_pm.pm_ra - pm.pm_ra) / e_pm.pm_ra).sqr()
             + ((calc_pm.pm_dec - pm.pm_dec) / e_pm.pm_dec).sqr();

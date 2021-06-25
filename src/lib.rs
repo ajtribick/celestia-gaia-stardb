@@ -3,6 +3,7 @@ use std::{
     path::Path,
 };
 
+use flate2::{write::GzEncoder, Compression};
 use globset::Glob;
 use pyo3::prelude::*;
 
@@ -20,7 +21,7 @@ use crate::{
 const HIP_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";
 const TYC_PATTERN: &str = "**/gaiaedr3-tyctdsc-*.vot.gz";
 
-fn crossmatch_directory<A, B>(path: &Path, pattern: &str) -> Result<(), Error>
+fn crossmatch_directory<A, B>(path: &Path, pattern: &str, output_name: &str) -> Result<(), Error>
 where
     A: VotableRecord + Crossmatchable<B>,
     B: VotableRecord,
@@ -44,7 +45,13 @@ where
         crossmatcher.add_reader(reader)?;
     }
 
-    crossmatcher.finalize();
+    let mut output_path = path.to_path_buf();
+    output_path.push(output_name);
+
+    let file = File::create(output_path)?;
+    let mut encoder = GzEncoder::new(file, Compression::default());
+    crossmatcher.finalize(&mut encoder)?;
+    encoder.finish()?.sync_all()?;
 
     Ok(())
 }
@@ -54,14 +61,22 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "build_hip_xmatch")]
     #[text_signature = "(gaia_dir, /)"]
     fn build_hip_xmatch_py<'py>(_py: Python<'py>, gaia_dir: &PyAny) -> PyResult<()> {
-        crossmatch_directory::<HipStar, GaiaStar>(gaia_dir.str()?.to_str()?.as_ref(), HIP_PATTERN)?;
+        crossmatch_directory::<HipStar, GaiaStar>(
+            gaia_dir.str()?.to_str()?.as_ref(),
+            HIP_PATTERN,
+            "xmatch-gaiaedr3-hip2.vot.gz",
+        )?;
         Ok(())
     }
 
     #[pyfn(m, "build_tyc_xmatch")]
     #[text_signature = "(gaia_dir, /)"]
     fn build_tyc_xmatch_py<'py>(_py: Python<'py>, gaia_dir: &PyAny) -> PyResult<()> {
-        crossmatch_directory::<TycStar, GaiaStar>(gaia_dir.str()?.to_str()?.as_ref(), TYC_PATTERN)?;
+        crossmatch_directory::<TycStar, GaiaStar>(
+            gaia_dir.str()?.to_str()?.as_ref(),
+            TYC_PATTERN,
+            "xmatch-gaiaedr3-tyctdsc.vot.gz",
+        )?;
         Ok(())
     }
 
