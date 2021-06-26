@@ -21,12 +21,14 @@ from pathlib import Path
 import re
 import time
 
+from astropy.table import Table
 from astroquery.gaia import Gaia
+import numpy as np
 
 from .directories import GAIA_EDR3_DIR
 from .ranges import MultiRange
 from .utils import confirm_action
-from .celestia_gaia import check_hip_ids
+from .celestia_gaia import build_hip_xmatch, build_tyc_xmatch, get_source_ids
 
 
 _HIP_MAX = 120404
@@ -85,12 +87,16 @@ WHERE
     """
 
 
-def _run_query(query: str, output_file: Path) -> None:
+def _run_query(
+    query: str, output_file: Path, upload_table: Table = None, upload_name: str = None
+) -> None:
     job = Gaia.launch_job_async(
         query,
         dump_to_file=True,
         output_file=output_file,
         output_format='votable',
+        upload_resource=upload_table,
+        upload_table_name=upload_name,
         verbose=False,
         background=True,
     )
@@ -165,5 +171,47 @@ def download_gaia() -> None:
             tyc_ranges = MultiRange(1, _TYC_MAX)
     download_gaia_tyc(tyc_ranges)
 
-def check_hip() -> None:
-    check_hip_ids(str(GAIA_EDR3_DIR))
+
+HIP_XMATCH = 'xmatch-gaia-hip.vot.gz'
+TYC_XMATCH = 'xmatch-gaia-tyc.vot.gz'
+
+
+def build_xmatches() -> None:
+    """Build the cross-matches"""
+    if (
+        not (GAIA_EDR3_DIR / HIP_XMATCH).exists()
+        or confirm_action('Re-generate Hipparcos cross-match?')
+    ):
+        build_hip_xmatch(GAIA_EDR3_DIR, HIP_XMATCH)
+
+    if (
+        not (GAIA_EDR3_DIR / TYC_XMATCH).exists()
+        or confirm_action('Re-generate Tycho cross-match?')
+    ):
+        build_tyc_xmatch(GAIA_EDR3_DIR, TYC_XMATCH)
+
+
+def download_gaia_distances(chunk_size: int = 250000) -> None:
+    """Downloads the distances from the Gaia archive"""
+    query = """SELECT
+    d.source_id, d.r_med_geo, d.r_med_photogeo
+FROM
+    tap_upload.source_ids s
+    JOIN external.gaiaedr3_distance d ON s.source_id = d.source_id
+    """
+
+    source_ids: np.ndarray = get_source_ids(GAIA_EDR3_DIR)
+    source_ids = source_ids.astype('int64')  # https://github.com/numpy/numpy/issues/12264
+    position = 0
+    part = 1
+    num_parts = (len(source_ids)+chunk_size-1) // chunk_size
+    while position < len(source_ids):
+        next_position = min(position + chunk_size, len(source_ids))
+        print(f'Querying distances, part {part} of {num_parts}')
+
+        table = Table([source_ids[position:next_position]], names=("source_id",))
+        section_path = GAIA_EDR3_DIR/f'gaiaedr3-distance-{part:04}.vot.gz'
+        _run_query(query, section_path, table, 'source_ids')
+
+        position = next_position
+        part += 1

@@ -1,11 +1,14 @@
 use std::{
+    collections::HashSet,
+    iter::FromIterator,
     fs::{read_dir, File},
     path::Path,
 };
 
 use flate2::{write::GzEncoder, Compression};
 use globset::Glob;
-use pyo3::prelude::*;
+use numpy::{IntoPyArray, PyArray1};
+use pyo3::prelude::{Python, PyAny, PyModule, PyResult, pymodule};
 
 mod astro;
 mod error;
@@ -20,6 +23,7 @@ use crate::{
 
 const HIP_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";
 const TYC_PATTERN: &str = "**/gaiaedr3-tyctdsc-*.vot.gz";
+const XMATCH_PATTERN: &str = "**/xmatch-*.vot.gz";
 
 fn crossmatch_directory<A, B>(path: &Path, pattern: &str, output_name: &str) -> Result<(), Error>
 where
@@ -31,12 +35,8 @@ where
     let pattern = Glob::new(pattern).map_err(Error::new)?.compile_matcher();
     for entry_result in read_dir(path)? {
         let entry = entry_result?;
-        if !entry.metadata()?.is_file() {
-            continue;
-        }
-
         let entry_path = entry.path();
-        if !pattern.is_match(&entry_path) {
+        if !pattern.is_match(&entry_path) || !entry.metadata()?.is_file() {
             continue;
         }
 
@@ -54,6 +54,30 @@ where
     encoder.finish()?.sync_all()?;
 
     Ok(())
+}
+
+fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, Error> {
+    let pattern = Glob::new(XMATCH_PATTERN).map_err(Error::new)?.compile_matcher();
+    let mut source_ids = HashSet::new();
+    for entry_result in read_dir(path)? {
+        let entry = entry_result?;
+        let entry_path = entry.path();
+        if !pattern.is_match(&entry_path) || !entry.metadata()?.is_file() {
+            continue;
+        }
+
+        let file = File::open(entry_path)?;
+        let mut reader = VotableReader::new(file)?;
+        let ordinal = reader.ordinal(b"source_id")?;
+        while let Some(accessor) = reader.read()? {
+            let source_id = accessor.read_i64(ordinal)?.ok_or(Error::MissingField(b"source_id".to_vec()))?;
+            source_ids.insert(source_id);
+        }
+    }
+
+    let mut vec = Vec::from_iter(source_ids.into_iter());
+    vec.sort_unstable();
+    Ok(vec)
 }
 
 #[pymodule]
@@ -86,6 +110,15 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
             output_name,
         )?;
         Ok(())
+    }
+
+    #[pyfn(m, "get_source_ids")]
+    #[text_signature = "(gaia_dir, /)"]
+    fn get_source_ids_py<'py>(
+        py: Python<'py>,
+        gaia_dir: &PyAny,
+    ) -> PyResult<&'py PyArray1<i64>> {
+        Ok(get_xmatch_source_ids(gaia_dir.str()?.to_str()?.as_ref())?.into_pyarray(py))
     }
 
     Ok(())
