@@ -194,20 +194,30 @@ def build_xmatches() -> None:
 def download_gaia_distances(chunk_size: int = 250000) -> None:
     """Downloads the distances from the Gaia archive"""
     query = """SELECT
-    d.source_id, d.r_med_geo, d.r_med_photogeo
+    s.source_id, d.r_med_geo, d.r_med_photogeo
 FROM
     tap_upload.source_ids s
-    JOIN external.gaiaedr3_distance d ON s.source_id = d.source_id
+    LEFT JOIN external.gaiaedr3_distance d ON s.source_id = d.source_id
     """
 
     source_ids: np.ndarray = get_source_ids(GAIA_EDR3_DIR)
+    if len(source_ids) == 0 and confirm_action('Re-download distances?'):
+        for f in GAIA_EDR3_DIR.glob('gaiaedr3-distance-*.vot.gz'):
+            f.unlink()
+        source_ids = get_source_ids(GAIA_EDR3_DIR)
     source_ids = source_ids.astype('int64')  # https://github.com/numpy/numpy/issues/12264
     position = 0
     part = 1
+    for f in GAIA_EDR3_DIR.glob('gaiaedr3-distance-*.vot.gz'):
+        p = int(f.name.removeprefix('gaiaedr3-distance-').removesuffix('.vot.gz'))
+        if p >= part:
+            part = p + 1
+
+    p = 1
     num_parts = (len(source_ids)+chunk_size-1) // chunk_size
     while position < len(source_ids):
         next_position = min(position + chunk_size, len(source_ids))
-        print(f'Querying distances, part {part} of {num_parts}')
+        print(f'Querying distances, part {p} of {num_parts}')
 
         table = Table([source_ids[position:next_position]], names=("source_id",))
         section_path = GAIA_EDR3_DIR/f'gaiaedr3-distance-{part:04}.vot.gz'
@@ -215,3 +225,4 @@ FROM
 
         position = next_position
         part += 1
+        p += 1

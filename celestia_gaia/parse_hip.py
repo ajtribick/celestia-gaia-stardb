@@ -23,24 +23,33 @@ import astropy.io.ascii as io_ascii
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import ICRS, SkyCoord
-from astropy.table import Table, join, unique
+from astropy.table import MaskedColumn, Table, join, unique
 from astropy.time import Time
 from erfa import ErfaWarning
 
-from .directories import GAIA_DR2_DIR, VIZIER_DIR, XMATCH_DIR
-from .utils import open_cds_tarfile, read_gaia
+from .celestia_gaia import apply_distances
+from .directories import GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
+from .utils import open_cds_tarfile
 
 
 def load_gaia_hip() -> Table:
     """Load the Gaia DR2 HIP sources."""
     print('Loading Gaia DR2 sources for HIP')
 
-    gaia = read_gaia(
-        GAIA_DR2_DIR/'gaiadr2_hip-result.csv',
-        'hip_id',
-        extra_fields=['parallax', 'parallax_error'],
-    )
-    gaia.rename_column('hip_id', 'HIP')
+    gaia = Table.read(GAIA_EDR3_DIR/'xmatch-gaia-hip.vot.gz', format='votable')
+    gaia['bp_rp'] = gaia['phot_bp_mean_mag'] - gaia['phot_rp_mean_mag']
+
+    print('  Merging distance information')
+    gaia['hip'] = gaia['hip'].astype('uint32')
+    gaia['r_est'] = MaskedColumn(apply_distances(GAIA_EDR3_DIR, gaia['source_id']), unit='pc')
+    gaia['r_est'].mask = np.isnan(gaia['r_est'])
+
+    gaia.rename_column('hip', 'HIP')
+    gaia.remove_columns([
+        'hip_ra', 'hip_dec', 'hp_mag', 'dr2_radial_velocity', 'ref_epoch', 'pmra', 'pmra_error',
+        'pmdec', 'pmdec_error', 'phot_bp_mean_mag', 'phot_rp_mean_mag',
+        'astrometric_params_solved',
+    ])
     return gaia
 
 
@@ -193,6 +202,7 @@ def process_hip() -> Table:
         keys=['HIP'],
         join_type='outer',
         table_names=['gaia', 'xhip'],
+        metadata_conflicts='silent',
     )
 
     data = join(data, load_sao(), keys=['HIP'], join_type='left')

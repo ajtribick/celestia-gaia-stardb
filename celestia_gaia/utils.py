@@ -26,12 +26,11 @@ import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from tarfile import TarFile
-from typing import Generator, IO, Optional, TextIO, Union
+from typing import Generator, IO, Optional, TextIO
 
 import astropy.io.ascii as io_ascii
-import astropy.units as u
 import numpy as np
-from astropy.table import Table, vstack
+from astropy.table import Table
 from astropy.units import UnitsWarning
 
 
@@ -50,32 +49,6 @@ def confirm_action(prompt: str, default: bool=False) -> bool:
             return True
         if answer in ('n', 'N'):
             return False
-
-
-def read_gaia(
-    files: Union[Path, list[Path]], id_name: str, *, extra_fields: Optional[list[str]] = None
-):
-    """Parse the CSV files produced by querying the Gaia TAP endpoint."""
-    fields = ['source_id', id_name, 'ra', 'dec', 'phot_g_mean_mag', 'bp_rp', 'teff_val', 'r_est']
-    if extra_fields is not None:
-        fields += extra_fields
-
-    if isinstance(files, list):
-        gaia = vstack(
-            [io_ascii.read(f, include_names=fields, format='csv') for f in files],
-            join_type='exact',
-        )
-    else:
-        gaia = io_ascii.read(files, include_names=fields, format='csv')
-
-    gaia['ra'].unit = u.deg
-    gaia['dec'].unit = u.deg
-    gaia['phot_g_mean_mag'].unit = u.mag
-    gaia['bp_rp'].unit = u.mag
-    gaia['teff_val'].unit = u.K
-    gaia['r_est'].unit = u.pc
-
-    return gaia
 
 
 class TarCds:

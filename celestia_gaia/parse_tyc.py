@@ -29,8 +29,9 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from .directories import GAIA_DR2_DIR, VIZIER_DIR, XMATCH_DIR
-from .utils import TarCds, WorkaroundCDSReader, open_cds_tarfile, read_gaia
+from .celestia_gaia import apply_distances
+from .directories import GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
+from .utils import TarCds, WorkaroundCDSReader, open_cds_tarfile
 
 
 def make_tyc(tyc1: int, tyc2: int, tyc3: int) -> int:
@@ -120,13 +121,25 @@ def load_gaia_tyc() -> Table:
     """Load the Gaia DR2 TYC2 sources."""
     print('Loading Gaia DR2 sources for TYC2')
 
-    file_names = ['gaiadr2_tyc-result.csv', 'gaiadr2_tyc-result-extra.csv']
-    gaia = read_gaia([GAIA_DR2_DIR/f for f in file_names], 'tyc2_id')
+    gaia = Table.read(GAIA_EDR3_DIR/'xmatch-gaia-tyc.vot.gz', format='votable')
 
-    parse_tyc_string(gaia, 'tyc2_id')
-    gaia.add_index('TYC')
+    gaia['TYC'] = make_tyc(
+        gaia['id_tycho'] // 1000000,
+        (gaia['id_tycho'] // 10) % 100000,
+        gaia['id_tycho'] % 10,
+    ).astype('uint32')
+    gaia['bp_rp'] = gaia['phot_bp_mean_mag'] - gaia['phot_rp_mean_mag']
+    print('  Merging distance information')
+    gaia['r_est'] = MaskedColumn(apply_distances(GAIA_EDR3_DIR, gaia['source_id']), unit='pc')
+    gaia['r_est'].mask = np.isnan(gaia['r_est'])
 
-    return unique(gaia.group_by('TYC'), keys=['source_id'])
+    gaia.remove_columns([
+        'id_tycho', 'cmp', 'tyc_ra', 'tyc_dec', 'bt_mag', 'vt_mag', 'ep_ra1990', 'ep_de1990',
+        'dr2_radial_velocity', 'ref_epoch', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error',
+        'phot_bp_mean_mag', 'phot_rp_mean_mag', 'astrometric_params_solved',
+    ])
+
+    return gaia
 
 
 def load_tyc_spec() -> Table:
@@ -313,12 +326,6 @@ def merge_tables() -> Table:
         join_type='left',
         table_names=('gaia', 'tycteff'),
     )
-
-    data['teff_val'] = MaskedColumn(
-        data['teff_val_gaia'].filled(data['teff_val_tycteff'].filled(np.nan)),
-    )
-    data['teff_val'].mask = np.isnan(data['teff_val'])
-    data.remove_columns(['teff_val_tycteff', 'teff_val_gaia'])
 
     data = join(data, load_sao(), keys=['TYC'], join_type='left')
     return data

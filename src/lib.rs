@@ -79,6 +79,24 @@ fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, Error> {
         }
     }
 
+    let pattern = Glob::new(DISTANCE_PATTERN)?.compile_matcher();
+    for entry_result in read_dir(path)? {
+        let entry = entry_result?;
+        let entry_path = entry.path();
+        if !pattern.is_match(&entry_path) || !entry.metadata()?.is_file() {
+            continue;
+        }
+
+        let file = File::open(entry_path)?;
+        let mut reader = VotableReader::new(file)?;
+        let ordinal = reader.ordinal(b"source_id")?;
+        while let Some(accessor) = reader.read()? {
+            if let Some(source_id) = accessor.read_i64(ordinal)? {
+                source_ids.remove(&source_id);
+            }
+        }
+    }
+
     let mut vec = Vec::from_iter(source_ids.into_iter());
     vec.sort_unstable();
     Ok(vec)
@@ -151,8 +169,8 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
             gaia_dir.str()?.to_str()?.as_ref(),
             TYC_PATTERN,
             output_name,
-        )?;
-        Ok(())
+        )
+        .map_err(|e| e.into())
     }
 
     #[pyfn(m, "get_source_ids")]

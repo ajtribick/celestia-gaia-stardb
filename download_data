@@ -20,9 +20,11 @@
 """Entry point for downloading the data files."""
 
 from celestia_gaia.download_data import download_vizier, download_sao_xmatch
-from celestia_gaia.gaia_data import download_gaia
+from celestia_gaia.gaia_data import build_xmatches, download_gaia, download_gaia_distances
 
 
 download_vizier()
-download_gaia()
 download_sao_xmatch()
+download_gaia()
+build_xmatches()
+download_gaia_distances()

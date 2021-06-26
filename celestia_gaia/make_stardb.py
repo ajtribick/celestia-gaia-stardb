@@ -32,7 +32,7 @@ from .parse_tyc import process_tyc
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
 from .utils import WorkaroundCDSReader, open_cds_tarfile
 
-VERSION = "1.0.4"
+VERSION = "1.1.0-alpha.1"
 
 OUTPUT_DIR = Path('output')
 
@@ -95,6 +95,7 @@ def estimate_magnitudes(data: Table) -> None:
             data['phot_g_mean_mag'].filled(np.nan) + 0.01760 + bp_rp*0.006860 + bp_rp2*0.1732,
         )
     )
+
     data['e_Vmag'] = MaskedColumn(data['e_Vmag'].filled(0.045858))
     data['Vmag'].mask = np.isnan(data['Vmag'])
     data['e_Vmag'].mask = data['Vmag'].mask
