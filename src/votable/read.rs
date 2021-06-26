@@ -123,7 +123,7 @@ impl<R: Read> VotableReader<R> {
         self.field_names
             .get(name)
             .copied()
-            .ok_or_else(|| Error::MissingField(name.to_vec()))
+            .ok_or_else(|| Error::MissingField(name.to_owned().into()))
     }
 
     pub fn read(&mut self) -> Result<Option<RecordAccessor>, Error> {

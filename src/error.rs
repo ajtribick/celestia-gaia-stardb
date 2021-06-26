@@ -1,4 +1,4 @@
-use std::{error, fmt, io};
+use std::{borrow::Cow, error, fmt, io};
 
 use pyo3::{exceptions::PyRuntimeError, PyErr};
 
@@ -9,7 +9,7 @@ use super::votable::DataType;
 pub enum Error {
     Parse(&'static str),
     FieldType(usize, DataType, DataType),
-    MissingField(Vec<u8>),
+    MissingField(Cow<'static, [u8]>),
     MissingId(String),
     Io(io::Error),
     Xml(quick_xml::Error),
@@ -78,6 +78,12 @@ impl From<io::ErrorKind> for Error {
 impl From<quick_xml::Error> for Error {
     fn from(e: quick_xml::Error) -> Self {
         Self::Xml(e)
+    }
+}
+
+impl From<globset::Error> for Error {
+    fn from(e: globset::Error) -> Self {
+        Self::new(e)
     }
 }
 
