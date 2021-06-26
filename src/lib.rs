@@ -59,7 +59,7 @@ where
 #[pymodule]
 fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "build_hip_xmatch")]
-    #[text_signature = "(gaia_dir, /)"]
+    #[text_signature = "(gaia_dir, output_name, /)"]
     fn build_hip_xmatch_py<'py>(
         _py: Python<'py>,
         gaia_dir: &PyAny,
@@ -74,7 +74,7 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     }
 
     #[pyfn(m, "build_tyc_xmatch")]
-    #[text_signature = "(gaia_dir, /)"]
+    #[text_signature = "(gaia_dir, output_name, /)"]
     fn build_tyc_xmatch_py<'py>(
         _py: Python<'py>,
         gaia_dir: &PyAny,
