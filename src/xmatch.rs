@@ -199,7 +199,7 @@ impl VotableRecord for GaiaStar {
     type Id = GaiaId;
 
     fn from_accessor(accessor: &RecordAccessor, ordinals: &GaiaOrdinals) -> Result<Self, Error> {
-        Ok(Self {
+        let mut gaia_star = Self {
             source_id: GaiaId(
                 accessor
                     .read_i64(ordinals.source_id)?
@@ -227,7 +227,27 @@ impl VotableRecord for GaiaStar {
             astrometric_params_solved: accessor
                 .read_i16(ordinals.astrometric_params_solved)?
                 .unwrap_or(0),
-        })
+        };
+
+        // magnitude correction from "Gaia Early Data Release 3: Summary of the contents and survey propreties" (erratum)
+        if gaia_star.astrometric_params_solved == 31 || gaia_star.phot_g_mean_mag < 13.0 {
+            return Ok(gaia_star);
+        }
+
+        let mut bp_rp = (gaia_star.phot_bp_mean_mag - gaia_star.phot_rp_mean_mag).clamp(0.25, 3.0);
+        if bp_rp.is_nan() {
+            bp_rp = 0.25;
+        }
+
+        if gaia_star.phot_g_mean_mag < 16.0 {
+            gaia_star.phot_g_mean_mag -=
+                2.5 * (1.00876 + bp_rp * (-0.02540 + bp_rp * (0.01747 - bp_rp * 0.00277))).log10();
+        } else {
+            gaia_star.phot_g_mean_mag -=
+                2.5 * (1.00525 + bp_rp * (-0.02323 + bp_rp * (0.01740 - bp_rp * 0.00253))).log10();
+        }
+
+        Ok(gaia_star)
     }
 
     fn id(&self) -> Self::Id {

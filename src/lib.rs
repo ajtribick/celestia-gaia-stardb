@@ -60,22 +60,30 @@ where
 fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "build_hip_xmatch")]
     #[text_signature = "(gaia_dir, /)"]
-    fn build_hip_xmatch_py<'py>(_py: Python<'py>, gaia_dir: &PyAny) -> PyResult<()> {
+    fn build_hip_xmatch_py<'py>(
+        _py: Python<'py>,
+        gaia_dir: &PyAny,
+        output_name: &str,
+    ) -> PyResult<()> {
         crossmatch_directory::<HipStar, GaiaStar>(
             gaia_dir.str()?.to_str()?.as_ref(),
             HIP_PATTERN,
-            "xmatch-gaiaedr3-hip2.vot.gz",
+            output_name,
         )?;
         Ok(())
     }
 
     #[pyfn(m, "build_tyc_xmatch")]
     #[text_signature = "(gaia_dir, /)"]
-    fn build_tyc_xmatch_py<'py>(_py: Python<'py>, gaia_dir: &PyAny) -> PyResult<()> {
+    fn build_tyc_xmatch_py<'py>(
+        _py: Python<'py>,
+        gaia_dir: &PyAny,
+        output_name: &str,
+    ) -> PyResult<()> {
         crossmatch_directory::<TycStar, GaiaStar>(
             gaia_dir.str()?.to_str()?.as_ref(),
             TYC_PATTERN,
-            "xmatch-gaiaedr3-tyctdsc.vot.gz",
+            output_name,
         )?;
         Ok(())
     }

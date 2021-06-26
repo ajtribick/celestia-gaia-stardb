@@ -2,7 +2,7 @@ use std::io::Read;
 
 use lazy_static::lazy_static;
 
-use super::{Crossmatchable, GaiaStar};
+use super::{hip::HipId, Crossmatchable, GaiaStar};
 use crate::{
     astro::{ProperMotion, SkyCoords, Squarable, MAS_TO_DEG},
     error::Error,
@@ -12,6 +12,8 @@ use crate::{
 #[derive(Debug)]
 pub struct TycOrdinals {
     id_tycho: usize,
+    hip: usize,
+    cmp: usize,
     ra_deg: usize,
     de_deg: usize,
     bt_mag: usize,
@@ -24,6 +26,8 @@ impl Ordinals for TycOrdinals {
     fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
         Ok(Self {
             id_tycho: reader.ordinal(b"id_tycho")?,
+            hip: reader.ordinal(b"hip")?,
+            cmp: reader.ordinal(b"cmp")?,
             ra_deg: reader.ordinal(b"tyc_ra")?,
             de_deg: reader.ordinal(b"tyc_dec")?,
             bt_mag: reader.ordinal(b"bt_mag")?,
@@ -40,6 +44,8 @@ pub struct TycId(pub i64);
 #[derive(Debug)]
 pub struct TycStar {
     pub tyc: TycId,
+    pub hip: Option<HipId>,
+    pub cmp: Option<Vec<u8>>,
     pub coords: SkyCoords,
     pub bt_mag: f32,
     pub vt_mag: f32,
@@ -58,13 +64,27 @@ fn g_bt(bp_rp: f32) -> f32 {
 }
 
 lazy_static! {
-    static ref TYC_FIELDS: [FieldInfo<TycStar>; 7] = [
+    static ref TYC_FIELDS: [FieldInfo<TycStar>; 9] = [
         FieldInfo::long(
             "id_tycho",
             None,
             Some("meta.id;meta.dataset"),
             "Numeric Tycho-2 identifier",
             |t| Some(t.tyc.0)
+        ),
+        FieldInfo::int(
+            "hip",
+            None,
+            Some("meta.id.cross"),
+            "Hipparcos number",
+            |t| t.hip.map(|h| h.0)
+        ),
+        FieldInfo::char(
+            "cmp",
+            None,
+            Some("meta.id.part"),
+            "Component designation",
+            |t| t.cmp.as_deref(),
         ),
         FieldInfo::double(
             "tyc_ra",
@@ -122,6 +142,8 @@ impl VotableRecord for TycStar {
                     .read_i64(ordinals.id_tycho)?
                     .ok_or(Error::missing_id("id_tycho"))?,
             ),
+            hip: accessor.read_i32(ordinals.hip)?.map(HipId),
+            cmp: accessor.read_char(ordinals.cmp)?,
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.ra_deg)?,
                 dec: accessor.read_f64(ordinals.de_deg)?,

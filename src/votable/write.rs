@@ -63,14 +63,14 @@ impl<W: Write> VotableWriter<W> {
             .as_mut()
             .expect("Cannot add fields after data is written");
         for field in T::fields() {
-            let (data_type, array_size, data_size): (&[u8], Option<&[u8]>, usize) =
+            let (data_type, array_size, data_size): (&[u8], Option<&str>, usize) =
                 match field.getter {
                     FieldGetter::Short(_) => (b"short", None, mem::size_of::<i16>()),
                     FieldGetter::Int(_) => (b"int", None, mem::size_of::<i32>()),
                     FieldGetter::Long(_) => (b"long", None, mem::size_of::<i64>()),
                     FieldGetter::Float(_) => (b"float", None, mem::size_of::<f32>()),
                     FieldGetter::Double(_) => (b"double", None, mem::size_of::<f64>()),
-                    FieldGetter::Char(_) => (b"char", Some(b"*"), mem::size_of::<u32>()),
+                    FieldGetter::Char(_) => (b"char", Some("*"), mem::size_of::<u32>()),
                 };
 
             self.field_count += 1;
@@ -82,7 +82,7 @@ impl<W: Write> VotableWriter<W> {
             ]);
 
             if let Some(a) = array_size {
-                element.push_attribute((b"arraysize".as_ref(), a));
+                element.push_attribute(("arraysize", a));
             }
 
             if let Some(u) = field.ucd {

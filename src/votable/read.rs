@@ -286,6 +286,22 @@ impl<'a> RecordAccessor<'a> {
         let offset = self.field_offsets[ordinal];
         Ok((&self.data[offset..offset + mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
     }
+
+    pub fn read_char(&self, ordinal: usize) -> Result<Option<Vec<u8>>, Error> {
+        let field_type = self.field_types[ordinal];
+        if field_type != DataType::Char {
+            return Err(Error::field_type(ordinal, DataType::Char, field_type));
+        }
+
+        if self.mask[ordinal] {
+            return Ok(None);
+        }
+
+        let offset = self.field_offsets[ordinal];
+        let data_offset = offset + mem::size_of::<u32>();
+        let length = (&self.data[offset..data_offset]).read_u32::<BigEndian>()? as usize;
+        Ok(Some(self.data[data_offset..data_offset + length].to_vec()))
+    }
 }
 
 struct Binary2Reader<R: BufRead> {
