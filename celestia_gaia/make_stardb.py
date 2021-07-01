@@ -82,29 +82,30 @@ def parse_spectra(data: Table) -> Table:
 def estimate_magnitudes(data: Table) -> None:
     """Estimates magnitudes and color indices from G magnitude and BP-RP.
 
-    Formula used is from Evans et al. (2018) "Gaia Data Release 2: Photometric
-    content and validation".
+    Formula used is from Riello et al. (2021) "Gaia Early Data Release 3: Photometric content and
+    validation".
     """
     print("Computing missing magnitudes and color indices")
 
     bp_rp = data['bp_rp'].filled(0)
-    bp_rp2 = bp_rp**2
 
     data['Vmag'] = MaskedColumn(
         data['Vmag'].filled(
-            data['phot_g_mean_mag'].filled(np.nan) + 0.01760 + bp_rp*0.006860 + bp_rp2*0.1732,
+            data['phot_g_mean_mag'].filled(np.nan)
+            - (-0.02704 + bp_rp*(0.01424 + bp_rp*(-0.2156 + bp_rp*0.01426))),
         )
     )
-
-    data['e_Vmag'] = MaskedColumn(data['e_Vmag'].filled(0.045858))
+    data['e_Vmag'] = MaskedColumn(data['e_Vmag'].filled(0.03017))
     data['Vmag'].mask = np.isnan(data['Vmag'])
     data['e_Vmag'].mask = data['Vmag'].mask
 
     bp_rp = data['bp_rp'].filled(np.nan)
-    bp_rp2 = bp_rp**2
 
-    imag = data['phot_g_mean_mag'].filled(np.nan) - 0.02085 - bp_rp*0.7419 + bp_rp2*0.09631
-    e_imag = np.where(np.isnan(imag), np.nan, 0.04956)
+    imag = (
+        data['phot_g_mean_mag'].filled(np.nan)
+        - (0.01753 + bp_rp*(0.76 - 0.0991*bp_rp))
+    )
+    e_imag = np.where(np.isnan(imag), np.nan, 0.03765)
 
     f_bmag = data['Bmag'].filled(np.nan)
     f_vmag = data['Vmag'].filled(np.nan)
