@@ -25,3 +25,6 @@ GAIA_EDR3_DIR = Path('data', 'gaiaedr3')
 HIP2_DIST_DIR = Path('data', 'hip2dist')
 VIZIER_DIR = Path('data', 'vizier')
 XMATCH_DIR = Path('data', 'xmatch')
+
+AUXFILES_DIR = Path('auxfiles')
+OUTPUT_DIR = Path('output')

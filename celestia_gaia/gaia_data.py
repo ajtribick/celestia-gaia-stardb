@@ -142,13 +142,13 @@ def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 200) -> None:
         _run_query(query, tyc_file)
 
 
-_RANGE_PATTERN = re.compile(r'-([0-9]+)-([0-9]+)$')
+_RANGE_PATTERN = re.compile(r'-([0-9]+)-([0-9]+)\.')
 
 
 def _getranges(start: int, end: int, path: Path, pattern: str) -> MultiRange:
     required_ranges = MultiRange(start, end)
     for existing in path.glob(pattern):
-        match = _RANGE_PATTERN.search(existing.stem)
+        match = _RANGE_PATTERN.search(str(existing))
         if match:
             groups = match.groups()
             required_ranges.remove(int(groups[0]), int(groups[1]))

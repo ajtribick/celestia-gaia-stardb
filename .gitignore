@@ -1,6 +1,12 @@
 # Downloaded catalogs and output files
+/auxfiles/*
+!/auxfiles/CREDITS.md
+!/auxfiles/LICENSE.txt
+!/auxfiles/hip2dist.csv
 /data
-/output/*.dat
+/output/*
+!/output/CREDITS.md
+!/output/LICENSE.txt
 /celestia*.zip
 
 # Python cache and virtual environment

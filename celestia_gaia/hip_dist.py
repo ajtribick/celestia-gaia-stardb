@@ -21,14 +21,14 @@ import astropy.units as u
 from astropy_healpix import HEALPix
 import numpy as np
 
-from .directories import HIP2_DIST_DIR, VIZIER_DIR
+from .directories import AUXFILES_DIR, HIP2_DIST_DIR, VIZIER_DIR
 from .utils import confirm_action, download_file, open_cds_tarfile
 from .celestia_gaia import estimate_distances
 
 
 _PRIORS_FILE = HIP2_DIST_DIR/'prior_summary.csv'
 _HEALPIX_FILE = HIP2_DIST_DIR/'hip2healpix.csv'
-_DIST_FILE = HIP2_DIST_DIR/'hip2dist.csv'
+_DIST_FILE = AUXFILES_DIR/'hip2dist.csv'
 
 
 def download_dist_prior() -> None:

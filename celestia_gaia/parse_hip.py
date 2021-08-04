@@ -28,7 +28,7 @@ from astropy.time import Time
 from erfa import ErfaWarning
 
 from .celestia_gaia import apply_distances
-from .directories import GAIA_EDR3_DIR, HIP2_DIST_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import AUXFILES_DIR, GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
 from .utils import open_cds_tarfile
 
 
@@ -118,7 +118,7 @@ def load_distances() -> Table:
 
     print('Loading distances')
     dist = io_ascii.read(
-        HIP2_DIST_DIR/'hip2dist.csv',
+        AUXFILES_DIR/'hip2dist.csv',
         include_names=['HIP', 'dist_med'],
         format='csv',
     )
