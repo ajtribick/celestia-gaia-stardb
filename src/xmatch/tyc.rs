@@ -17,7 +17,7 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::io::Read;
+use std::io::{Read, Write};
 
 use lazy_static::lazy_static;
 
@@ -256,4 +256,34 @@ impl Crossmatchable<GaiaStar> for TycStar {
 
         pm_diff + (idx_diff as f64 / 0.06).sqr() + (dist / MAS_TO_DEG).sqr()
     }
+}
+
+pub fn tyc_csv_crossmatch(
+    mut reader: VotableReader<impl Read>,
+    writer: &mut impl Write,
+) -> Result<(), AppError> {
+    let mut results = Vec::with_capacity(2561887);
+    let tyc_ordinal = reader.ordinal(b"id_tycho")?;
+    let source_id_ordinal = reader.ordinal(b"source_id")?;
+    writeln!(writer, "tyc,source_id")?;
+    while let Some(record) = reader.read()? {
+        let tyc = record
+            .read_i64(tyc_ordinal)?
+            .ok_or(AppError::missing_id("id_tycho"))?;
+        let source_id = record
+            .read_i64(source_id_ordinal)?
+            .ok_or(AppError::missing_id("source_id"))?;
+        results.push((tyc, source_id));
+    }
+
+    results.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+
+    for (tyc, source_id) in results {
+        let tyc1 = tyc / 1000000;
+        let tyc2 = (tyc / 10) % 100000;
+        let tyc3 = tyc % 10;
+        writeln!(writer, "\"{}-{}-{}\",{}", tyc1, tyc2, tyc3, source_id)?;
+    }
+
+    Ok(())
 }

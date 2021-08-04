@@ -17,7 +17,7 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::io::Read;
+use std::io::{Read, Write};
 
 use lazy_static::lazy_static;
 
@@ -171,4 +171,30 @@ impl Crossmatchable<GaiaStar> for HipStar {
 
         pm_diff + (mag_diff / 0.1).sqr() + (dist / MAS_TO_DEG).sqr()
     }
+}
+
+pub fn hip_csv_crossmatch(
+    mut reader: VotableReader<impl Read>,
+    writer: &mut impl Write,
+) -> Result<(), AppError> {
+    let mut records = Vec::with_capacity(117955);
+    let hip_ordinal = reader.ordinal(b"hip")?;
+    let source_id_ordinal = reader.ordinal(b"source_id")?;
+    writeln!(writer, "hip,source_id")?;
+    while let Some(record) = reader.read()? {
+        let hip = record
+            .read_i32(hip_ordinal)?
+            .ok_or(AppError::missing_id("hip"))?;
+        let source_id = record
+            .read_i64(source_id_ordinal)?
+            .ok_or(AppError::missing_id("source_id"))?;
+        records.push((hip, source_id));
+    }
+
+    records.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+    for (hip, source_id) in records {
+        writeln!(writer, "{},{}", hip, source_id)?;
+    }
+
+    Ok(())
 }

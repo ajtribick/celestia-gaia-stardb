@@ -26,7 +26,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from .directories import OUTPUT_DIR, VIZIER_DIR
+from .directories import AUXFILES_DIR, OUTPUT_DIR, VIZIER_DIR
 from .parse_hip import process_hip
 from .parse_tyc import process_tyc
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
@@ -408,3 +408,12 @@ def make_stardb() -> None:
         contents = ['stars.dat', 'hdxindex.dat', 'saoxindex.dat', 'LICENSE.txt', 'CREDITS.md']
         for f in contents:
             zf.write(OUTPUT_DIR/f, arcname=Path(archivename)/f)
+
+    archivename = f'celestia-gaia-auxiliary-{VERSION}'
+    with ZipFile(f'{archivename}.zip', 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf:
+        contents = [
+            'hip2dist.csv', 'hip-gaia-xmatch.csv', 'tyc-gaia-xmatch.csv',
+            'LICENSE.txt', 'CREDITS.md',
+        ]
+        for f in contents:
+            zf.write(AUXFILES_DIR/f, arcname=Path(archivename)/f)

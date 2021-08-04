@@ -21,6 +21,7 @@ use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     fs::{read_dir, File},
+    io::{BufWriter, Write},
     iter::FromIterator,
     path::Path,
 };
@@ -41,7 +42,10 @@ use crate::{
     error::AppError,
     hip2dist::estimate_distances,
     votable::{VotableReader, VotableRecord},
-    xmatch::{Crossmatchable, Crossmatcher, GaiaStar, HipStar, TycStar},
+    xmatch::{
+        hip_csv_crossmatch, tyc_csv_crossmatch, Crossmatchable, Crossmatcher, GaiaStar, HipStar,
+        TycStar,
+    },
 };
 
 const HIP_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";
@@ -80,7 +84,7 @@ where
     Ok(())
 }
 
-fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, AppError> {
+fn get_required_dist_source_ids(path: &Path) -> Result<Vec<i64>, AppError> {
     let pattern = Glob::new(XMATCH_PATTERN)?.compile_matcher();
     let mut source_ids = HashSet::new();
     for entry_result in read_dir(path)? {
@@ -92,6 +96,7 @@ fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, AppError> {
 
         let file = File::open(entry_path)?;
         let mut reader = VotableReader::new(file)?;
+
         let ordinal = reader.ordinal(b"source_id")?;
         while let Some(accessor) = reader.read()? {
             let source_id = accessor
@@ -111,6 +116,7 @@ fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, AppError> {
 
         let file = File::open(entry_path)?;
         let mut reader = VotableReader::new(file)?;
+
         let ordinal = reader.ordinal(b"source_id")?;
         while let Some(accessor) = reader.read()? {
             if let Some(source_id) = accessor.read_i64(ordinal)? {
@@ -195,10 +201,13 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
         .map_err(Into::into)
     }
 
-    #[pyfn(m, "get_source_ids")]
+    #[pyfn(m, "get_required_dist_source_ids")]
     #[text_signature = "(gaia_dir, /)"]
-    fn get_source_ids_py<'py>(py: Python<'py>, gaia_dir: &PyAny) -> PyResult<&'py PyArray1<i64>> {
-        Ok(get_xmatch_source_ids(gaia_dir.str()?.to_str()?.as_ref())?.into_pyarray(py))
+    fn get_required_dist_source_ids_py<'py>(
+        py: Python<'py>,
+        gaia_dir: &PyAny,
+    ) -> PyResult<&'py PyArray1<i64>> {
+        Ok(get_required_dist_source_ids(gaia_dir.str()?.to_str()?.as_ref())?.into_pyarray(py))
     }
 
     #[pyfn(m, "apply_distances")]
@@ -229,6 +238,38 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
             output_file.str()?.to_str()?.to_owned(),
         )
         .map_err(Into::into)
+    }
+
+    #[pyfn(m, "create_hip_aux_xmatch")]
+    #[text_signature = "(crossmatch_file, output_file, /)"]
+    fn create_hip_aux_xmatch_py<'py>(
+        _py: Python<'py>,
+        crossmatch_file: &'py PyAny,
+        output_file: &'py PyAny,
+    ) -> PyResult<()> {
+        let input = File::open(crossmatch_file.str()?.to_str()?)?;
+        let reader = VotableReader::new(input)?;
+        let output = File::create(output_file.str()?.to_str()?)?;
+        let mut writer = BufWriter::new(output);
+        hip_csv_crossmatch(reader, &mut writer)?;
+        writer.flush()?;
+        Ok(())
+    }
+
+    #[pyfn(m, "create_tyc_aux_xmatch")]
+    #[text_signature = "(crossmatch_file, output_file, /)"]
+    fn create_tyc_aux_xmatch_py<'py>(
+        _py: Python<'py>,
+        crossmatch_file: &'py PyAny,
+        output_file: &'py PyAny,
+    ) -> PyResult<()> {
+        let input = File::open(crossmatch_file.str()?.to_str()?)?;
+        let reader = VotableReader::new(input)?;
+        let output = File::create(output_file.str()?.to_str()?)?;
+        let mut writer = BufWriter::new(output);
+        tyc_csv_crossmatch(reader, &mut writer)?;
+        writer.flush()?;
+        Ok(())
     }
 
     Ok(())

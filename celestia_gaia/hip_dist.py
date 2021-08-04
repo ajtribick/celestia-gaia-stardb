@@ -73,4 +73,5 @@ def build_hip2_distances() -> None:
     ):
         return
 
+    print('Estimating HIP2 distances from parallaxes')
     estimate_distances(_PRIORS_FILE, _HEALPIX_FILE, _DIST_FILE)

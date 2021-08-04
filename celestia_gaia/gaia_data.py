@@ -25,10 +25,13 @@ from astropy.table import Table
 from astroquery.gaia import Gaia
 import numpy as np
 
-from .directories import GAIA_EDR3_DIR
+from .directories import AUXFILES_DIR, GAIA_EDR3_DIR
 from .ranges import MultiRange
 from .utils import confirm_action
-from .celestia_gaia import build_hip_xmatch, build_tyc_xmatch, get_source_ids
+from .celestia_gaia import (
+    build_hip_xmatch, build_tyc_xmatch, create_hip_aux_xmatch, create_tyc_aux_xmatch,
+    get_required_dist_source_ids,
+)
 
 
 _HIP_MAX = 120404
@@ -134,7 +137,7 @@ def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 200) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
         tyc_file = (
-            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-part{section.begin:04}-{section.end:04}.vot.gz'
+            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-{section.begin:04}-{section.end:04}.vot.gz'
         )
 
         query = _tyc_query(section.begin, section.end)
@@ -179,13 +182,13 @@ TYC_XMATCH = 'xmatch-gaia-tyc.vot.gz'
 def build_xmatches() -> None:
     """Build the cross-matches"""
     if (
-        not (GAIA_EDR3_DIR / HIP_XMATCH).exists()
+        not (GAIA_EDR3_DIR/HIP_XMATCH).exists()
         or confirm_action('Re-generate Hipparcos cross-match?')
     ):
         build_hip_xmatch(GAIA_EDR3_DIR, HIP_XMATCH)
 
     if (
-        not (GAIA_EDR3_DIR / TYC_XMATCH).exists()
+        not (GAIA_EDR3_DIR/TYC_XMATCH).exists()
         or confirm_action('Re-generate Tycho cross-match?')
     ):
         build_tyc_xmatch(GAIA_EDR3_DIR, TYC_XMATCH)
@@ -200,11 +203,11 @@ FROM
     LEFT JOIN external.gaiaedr3_distance d ON s.source_id = d.source_id
     """
 
-    source_ids: np.ndarray = get_source_ids(GAIA_EDR3_DIR)
+    source_ids: np.ndarray = get_required_dist_source_ids(GAIA_EDR3_DIR)
     if len(source_ids) == 0 and confirm_action('Re-download distances?'):
         for f in GAIA_EDR3_DIR.glob('gaiaedr3-distance-*.vot.gz'):
             f.unlink()
-        source_ids = get_source_ids(GAIA_EDR3_DIR)
+        source_ids = get_required_dist_source_ids(GAIA_EDR3_DIR)
     source_ids = source_ids.astype('int64')  # https://github.com/numpy/numpy/issues/12264
     position = 0
     part = 1
@@ -226,3 +229,19 @@ FROM
         position = next_position
         part += 1
         p += 1
+
+def create_aux_xmatch_files() -> None:
+    """Creates the auxiliary cross-match CSV files"""
+    hip_xmatch_file = AUXFILES_DIR/'hip-gaia-xmatch.csv'
+    if (
+        not hip_xmatch_file.exists()
+        or confirm_action('HIP-Gaia xmatch csv exists, re-create it?')
+    ):
+        create_hip_aux_xmatch(GAIA_EDR3_DIR/HIP_XMATCH, hip_xmatch_file)
+
+    tyc_xmatch_file = AUXFILES_DIR/'tyc-gaia-xmatch.csv'
+    if (
+        not tyc_xmatch_file.exists()
+        or confirm_action('TYC-Gaia xmatch csv exists, re-create it?')
+    ):
+        create_tyc_aux_xmatch(GAIA_EDR3_DIR/TYC_XMATCH, tyc_xmatch_file)

@@ -35,8 +35,8 @@ use super::{
 mod hip;
 mod tyc;
 
-pub use hip::HipStar;
-pub use tyc::TycStar;
+pub use hip::{hip_csv_crossmatch, HipStar};
+pub use tyc::{tyc_csv_crossmatch, TycStar};
 
 pub trait Crossmatchable<C> {
     fn score(&self, gaia_star: &C) -> f64;

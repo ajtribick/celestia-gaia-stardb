@@ -91,7 +91,8 @@ impl<R: Read> VotableReader<R> {
         let mut is_binary2 = false;
         loop {
             match xml_reader.read_namespaced_event(&mut buf, &mut ns_buf)? {
-                (Some(VOTABLE_NS), Event::Start(ref e)) => match e.name() {
+                (Some(VOTABLE_NS), Event::Start(ref e))
+                | (Some(VOTABLE_NS), Event::Empty(ref e)) => match e.name() {
                     b"FIELD" => {
                         let (name, data_type) = parse_field(e.attributes())?;
                         field_names.insert(name, field_names.len());
@@ -109,6 +110,7 @@ impl<R: Read> VotableReader<R> {
                     b"STREAM" => break,
                     _ => (),
                 },
+
                 (_, Event::Eof) => return Err(ErrorKind::UnexpectedEof.into()),
                 _ => (),
             }
