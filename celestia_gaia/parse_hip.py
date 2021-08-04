@@ -28,7 +28,7 @@ from astropy.time import Time
 from erfa import ErfaWarning
 
 from .celestia_gaia import apply_distances
-from .directories import GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import GAIA_EDR3_DIR, HIP2_DIST_DIR, VIZIER_DIR, XMATCH_DIR
 from .utils import open_cds_tarfile
 
 
@@ -113,45 +113,17 @@ def load_sao() -> Table:
     return data
 
 
-def compute_distances(hip_data: Table, length_kpc: float=1.35) -> None:
-    """Compute the distance using an exponentially-decreasing prior.
+def load_distances() -> Table:
+    """Loads the computed HIP2 distances."""
 
-    The method is described in:
-
-    Bailer-Jones (2015) "Estimating Distances from Parallaxes"
-    https://ui.adsabs.harvard.edu/abs/2015PASP..127..994B/abstract
-
-    Using a uniform length scale of 1.35 kpc as suggested for the TGAS
-    catalogue of stars in Gaia DR1.
-
-    Astraatmadja & Bailer-Jones "Estimating distances from parallaxes.
-    III. Distances of two million stars in the Gaia DR1 catalogue"
-    https://ui.adsabs.harvard.edu/abs/2016ApJ...833..119A/abstract
-    """
-
-    print('Computing distances')
-
-    eplx2 = hip_data['e_Plx'] ** 2
-
-    r3coeff = np.full_like(hip_data['Plx'], 1/length_kpc)
-    r2coeff = np.full_like(hip_data['Plx'], -2)
-
-    roots = np.apply_along_axis(
-        np.roots,
-        0,
-        [r3coeff, r2coeff, hip_data['Plx'] / eplx2, -1 / eplx2],
-    )
-    roots[np.logical_or(np.real(roots) < 0.0, abs(np.imag(roots)) > 1.0e-6)] = np.nan
-    parallax_distance = np.nanmin(np.real(roots), 0) * 1000
-
-    # prefer cluster distances (e_Dist NULL), otherwise use computed distance
-    is_cluster_distance = np.logical_and(
-        np.logical_not(hip_data['Dist'].mask),
-        hip_data['e_Dist'].mask,
+    print('Loading distances')
+    dist = io_ascii.read(
+        HIP2_DIST_DIR/'hip2dist.csv',
+        include_names=['HIP', 'dist_med'],
+        format='csv',
     )
 
-    hip_data['r_est'] = np.where(is_cluster_distance, hip_data['Dist'], parallax_distance)
-    hip_data['r_est'].unit = u.pc
+    return dist
 
 
 HIP_TIME = Time('J1991.25')
@@ -188,7 +160,19 @@ def process_xhip() -> Table:
     xhip['SpType'] = xhip['SpType1'].filled(xhip['SpType'])
     xhip.remove_column('SpType1')
 
-    compute_distances(xhip)
+    xhip = join(
+        xhip, load_distances(), keys=['HIP'], join_type='left', metadata_conflicts='silent'
+    )
+
+    # prefer cluster distances (e_Dist NULL), otherwise use computed distance
+    is_cluster_distance = np.logical_and(
+        np.logical_not(xhip['Dist'].mask),
+        xhip['e_Dist'].mask,
+    )
+    xhip['r_est'] = np.where(is_cluster_distance, xhip['Dist'], xhip['dist_med'])
+    xhip['r_est'].unit = u.pc
+    xhip.remove_column('dist_med')
+
     update_coordinates(xhip)
     xhip.remove_columns(['RAdeg', 'DEdeg', 'pmRA', 'pmDE', 'RV', 'Dist', 'e_Dist'])
     return xhip

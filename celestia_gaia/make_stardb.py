@@ -32,7 +32,7 @@ from .parse_tyc import process_tyc
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
 from .utils import WorkaroundCDSReader, open_cds_tarfile
 
-VERSION = "1.1.0-alpha.1"
+VERSION = "1.1.0-alpha.2"
 
 OUTPUT_DIR = Path('output')
 
