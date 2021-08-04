@@ -1,6 +1,7 @@
 Arpeggio==1.10.2
 astroid==2.5.6
 astropy==4.2.1
+astropy-healpix==0.6
 astroquery==0.4.2
 beautifulsoup4==4.9.3
 certifi==2021.5.30

@@ -19,7 +19,7 @@
 
 use std::{fmt, hash::Hash, io::Read, num::NonZeroUsize};
 
-use super::error::Error;
+use super::error::AppError;
 
 mod read;
 mod write;
@@ -30,14 +30,17 @@ pub use write::VotableWriter;
 const VOTABLE_NS: &[u8] = b"http://www.ivoa.net/xml/VOTable/v1.3";
 
 pub trait Ordinals: Sized {
-    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error>;
+    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, AppError>;
 }
 
 pub trait VotableRecord: Sized + 'static {
     type Ordinals: Ordinals;
     type Id: Eq + Hash + Copy;
 
-    fn from_accessor(accessor: &RecordAccessor, ordinals: &Self::Ordinals) -> Result<Self, Error>;
+    fn from_accessor(
+        accessor: &RecordAccessor,
+        ordinals: &Self::Ordinals,
+    ) -> Result<Self, AppError>;
     fn id(&self) -> Self::Id;
     fn fields() -> &'static [FieldInfo<Self>];
 }
@@ -53,7 +56,7 @@ pub enum DataType {
 }
 
 impl DataType {
-    fn parse_bytes(bstr: &[u8]) -> Result<Self, Error> {
+    fn parse_bytes(bstr: &[u8]) -> Result<Self, AppError> {
         match bstr {
             b"short" => Ok(Self::Short),
             b"int" => Ok(Self::Int),
@@ -61,7 +64,7 @@ impl DataType {
             b"float" => Ok(Self::Float),
             b"double" => Ok(Self::Double),
             b"char" => Ok(Self::Char),
-            _ => Err(Error::parse("Unsupported data type")),
+            _ => Err(AppError::parse("Unsupported data type")),
         }
     }
 

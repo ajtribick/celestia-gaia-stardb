@@ -17,13 +17,22 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{f64, ops};
+use std::{f64, hash::Hash, ops};
 
 use nalgebra::vector;
 
 pub const MAS_TO_RADIANS: f64 = f64::consts::PI / (3600000.0 * 180.0);
 pub const MAS_TO_DEG: f64 = 1.0 / 3600000.0;
 pub const AU_IN_KM_YEAR_PER_S: f64 = 149597870.7 / (365.25 * 86400.0);
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct GaiaId(pub i64);
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
+pub struct HipId(pub i32);
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct TycId(pub i64);
 
 pub trait Squarable: ops::Mul<Output = Self> + Sized + Copy {
     fn sqr(&self) -> Self {

@@ -17,7 +17,7 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{borrow::Cow, error, fmt, io};
+use std::{any::Any, borrow::Cow, error, fmt, io};
 
 use pyo3::{exceptions::PyRuntimeError, PyErr};
 
@@ -25,17 +25,18 @@ use super::votable::DataType;
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum Error {
+pub enum AppError {
     Parse(&'static str),
     FieldType(usize, DataType, DataType),
     MissingField(Cow<'static, [u8]>),
     MissingId(String),
     Io(io::Error),
     Xml(quick_xml::Error),
-    Other(Box<dyn error::Error + Send + Sync>),
+    Other(Box<dyn error::Error + Send>),
+    Thread(Box<dyn Any + Send + 'static>),
 }
 
-impl Error {
+impl AppError {
     pub fn parse(message: &'static str) -> Self {
         Self::Parse(message)
     }
@@ -53,7 +54,7 @@ impl Error {
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Parse(s) => write!(f, "Parser failure: {}", s),
@@ -67,11 +68,12 @@ impl fmt::Display for Error {
             Self::Io(e) => write!(f, "Io error: {}", e),
             Self::Xml(e) => write!(f, "XML error: {}", e),
             Self::Other(e) => write!(f, "Error: {}", e),
+            Self::Thread(e) => write!(f, "Thread error {:?}", e),
         }
     }
 }
 
-impl error::Error for Error {
+impl error::Error for AppError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Io(e) => Some(e),
@@ -82,34 +84,34 @@ impl error::Error for Error {
     }
 }
 
-impl From<io::Error> for Error {
+impl From<io::Error> for AppError {
     fn from(e: io::Error) -> Self {
         Self::Io(e)
     }
 }
 
-impl From<io::ErrorKind> for Error {
+impl From<io::ErrorKind> for AppError {
     fn from(e: io::ErrorKind) -> Self {
         Self::Io(e.into())
     }
 }
 
-impl From<quick_xml::Error> for Error {
+impl From<quick_xml::Error> for AppError {
     fn from(e: quick_xml::Error) -> Self {
         Self::Xml(e)
     }
 }
 
-impl From<globset::Error> for Error {
+impl From<globset::Error> for AppError {
     fn from(e: globset::Error) -> Self {
         Self::new(e)
     }
 }
 
-impl From<Error> for PyErr {
-    fn from(e: Error) -> Self {
+impl From<AppError> for PyErr {
+    fn from(e: AppError) -> Self {
         match e {
-            Error::Io(inner) => inner.into(),
+            AppError::Io(inner) => inner.into(),
             _ => PyRuntimeError::new_err(e.to_string()),
         }
     }

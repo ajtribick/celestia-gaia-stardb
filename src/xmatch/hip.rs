@@ -21,12 +21,13 @@ use std::io::Read;
 
 use lazy_static::lazy_static;
 
-use super::{Crossmatchable, GaiaStar};
 use crate::{
-    astro::{ProperMotion, SkyCoords, Squarable, MAS_TO_DEG},
-    error::Error,
+    astro::{HipId, ProperMotion, SkyCoords, Squarable, MAS_TO_DEG},
+    error::AppError,
     votable::{FieldInfo, Ordinals, RecordAccessor, VotableReader, VotableRecord},
 };
+
+use super::{Crossmatchable, GaiaStar};
 
 const HIP_EPOCH: f64 = 1991.25;
 
@@ -39,7 +40,7 @@ pub struct HipOrdinals {
 }
 
 impl Ordinals for HipOrdinals {
-    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
+    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, AppError> {
         Ok(Self {
             hip: reader.ordinal(b"hip")?,
             hip_ra: reader.ordinal(b"hip_ra")?,
@@ -48,9 +49,6 @@ impl Ordinals for HipOrdinals {
         })
     }
 }
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct HipId(pub i32);
 
 #[derive(Debug)]
 pub struct HipStar {
@@ -85,12 +83,12 @@ impl VotableRecord for HipStar {
     type Ordinals = HipOrdinals;
     type Id = HipId;
 
-    fn from_accessor(accessor: &RecordAccessor, ordinals: &HipOrdinals) -> Result<Self, Error> {
+    fn from_accessor(accessor: &RecordAccessor, ordinals: &HipOrdinals) -> Result<Self, AppError> {
         Ok(Self {
             hip: HipId(
                 accessor
                     .read_i32(ordinals.hip)?
-                    .ok_or(Error::missing_id("hip"))?,
+                    .ok_or(AppError::missing_id("hip"))?,
             ),
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.hip_ra)?,

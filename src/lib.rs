@@ -31,12 +31,15 @@ use numpy::{IntoPyArray, PyArray1};
 use pyo3::prelude::*;
 
 mod astro;
+mod csv;
 mod error;
+mod hip2dist;
 mod votable;
 mod xmatch;
 
 use crate::{
-    error::Error,
+    error::AppError,
+    hip2dist::estimate_distances,
     votable::{VotableReader, VotableRecord},
     xmatch::{Crossmatchable, Crossmatcher, GaiaStar, HipStar, TycStar},
 };
@@ -46,7 +49,7 @@ const TYC_PATTERN: &str = "**/gaiaedr3-tyctdsc-*.vot.gz";
 const XMATCH_PATTERN: &str = "**/xmatch-*.vot.gz";
 const DISTANCE_PATTERN: &str = "**/gaiaedr3-distance-*.vot.gz";
 
-fn crossmatch_directory<A, B>(path: &Path, pattern: &str, output_name: &str) -> Result<(), Error>
+fn crossmatch_directory<A, B>(path: &Path, pattern: &str, output_name: &str) -> Result<(), AppError>
 where
     A: VotableRecord + Crossmatchable<B>,
     B: VotableRecord,
@@ -77,7 +80,7 @@ where
     Ok(())
 }
 
-fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, Error> {
+fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, AppError> {
     let pattern = Glob::new(XMATCH_PATTERN)?.compile_matcher();
     let mut source_ids = HashSet::new();
     for entry_result in read_dir(path)? {
@@ -93,7 +96,7 @@ fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, Error> {
         while let Some(accessor) = reader.read()? {
             let source_id = accessor
                 .read_i64(ordinal)?
-                .ok_or(Error::MissingField(Cow::Borrowed(b"source_id")))?;
+                .ok_or(AppError::MissingField(Cow::Borrowed(b"source_id")))?;
             source_ids.insert(source_id);
         }
     }
@@ -121,7 +124,7 @@ fn get_xmatch_source_ids(path: &Path) -> Result<Vec<i64>, Error> {
     Ok(vec)
 }
 
-fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, Error> {
+fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, AppError> {
     let mut geometric = vec![f32::NAN; source_ids.len()];
     let source_indices: HashMap<_, _> = source_ids
         .into_iter()
@@ -145,7 +148,7 @@ fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, Erro
         while let Some(accessor) = reader.read()? {
             let source_id = accessor
                 .read_i64(source_ordinal)?
-                .ok_or(Error::MissingField(Cow::Borrowed(b"source_id")))?;
+                .ok_or(AppError::MissingField(Cow::Borrowed(b"source_id")))?;
             if let Some(&index) = source_indices.get(&source_id) {
                 let mut distance = accessor.read_f32(photogeometric_ordinal)?;
                 if distance.is_nan() {
@@ -189,7 +192,7 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
             TYC_PATTERN,
             output_name,
         )
-        .map_err(|e| e.into())
+        .map_err(Into::into)
     }
 
     #[pyfn(m, "get_source_ids")]
@@ -210,6 +213,22 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
             source_ids.readonly().as_slice()?,
         )?;
         Ok(distances.into_pyarray(py))
+    }
+
+    #[pyfn(m, "estimate_distances")]
+    #[text_signature = "(prior_file, hip2_file, output_file, /)"]
+    fn estimate_distances_py<'py>(
+        _py: Python<'py>,
+        prior_file: &'py PyAny,
+        hip2_file: &'py PyAny,
+        output_file: &'py PyAny,
+    ) -> PyResult<()> {
+        estimate_distances(
+            prior_file.str()?.to_str()?.to_owned(),
+            hip2_file.str()?.to_str()?.to_owned(),
+            output_file.str()?.to_str()?.to_owned(),
+        )
+        .map_err(Into::into)
     }
 
     Ok(())

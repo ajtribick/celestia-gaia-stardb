@@ -20,43 +20,18 @@
 from pathlib import Path
 
 import astropy.io.ascii as io_ascii
-import requests
 from astropy import units
 from astroquery.xmatch import XMatch
 
 from .directories import VIZIER_DIR, XMATCH_DIR
-from .utils import confirm_action
-
-
-def _proceed_checkfile(path: Path) -> bool:
-    """Check if a file exists, if so prompt the user if they want to replace it."""
-    if path.exists():
-        if confirm_action(f'{path} already exists, replace?'):
-            path.unlink()
-        else:
-            return False
-    return True
-
-
-def _download_file(path: Path, url: str) -> bool:
-    """Download a file using requests."""
-    if not _proceed_checkfile(path):
-        return
-
-    print(f'Downloading {url}')
-    response = requests.get(url, stream=True)
-    if response.status_code == 200:
-        with path.open('wb') as f:
-            f.write(response.raw.read())
-    else:
-        print('Failed to download')
+from .utils import download_file, proceed_checkfile
 
 
 # --- SAO XMATCH DOWNLOAD ---
 
 def download_xmatch(cat1: str, cat2: str, path: Path) -> None:
     """Download a cross-match from VizieR."""
-    if not _proceed_checkfile(path):
+    if not proceed_checkfile(path):
         return
 
     result = XMatch.query(
@@ -103,4 +78,4 @@ def download_vizier() -> None:
     ]
 
     for file_name, url in files_urls:
-        _download_file(VIZIER_DIR/file_name, url)
+        download_file(VIZIER_DIR/file_name, url)

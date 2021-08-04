@@ -79,6 +79,10 @@ steps below **before** you begin.
     - Riello et al. (2021), A&A 649. id.A3, "*Gaia* Early Data Release 3.
       Photometric content and validation"
 
+- Bailer-Jones et al. (2021), AJ 161(3), id.147 "Estimating Distances from
+  Parallaxes. V. Geometric and Photogeometric Distances to 1.47 Billion Stars
+  in Gaia Early Data Release 3"
+
 - Extended Hipparcos Compilation (XHIP)
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/V/137D)
 

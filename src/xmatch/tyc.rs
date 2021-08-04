@@ -21,10 +21,10 @@ use std::io::Read;
 
 use lazy_static::lazy_static;
 
-use super::{hip::HipId, Crossmatchable, GaiaStar};
+use super::{Crossmatchable, GaiaStar};
 use crate::{
-    astro::{ProperMotion, SkyCoords, Squarable, MAS_TO_DEG},
-    error::Error,
+    astro::{HipId, ProperMotion, SkyCoords, Squarable, TycId, MAS_TO_DEG},
+    error::AppError,
     votable::{FieldInfo, Ordinals, RecordAccessor, VotableReader, VotableRecord},
 };
 
@@ -42,7 +42,7 @@ pub struct TycOrdinals {
 }
 
 impl Ordinals for TycOrdinals {
-    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
+    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, AppError> {
         Ok(Self {
             id_tycho: reader.ordinal(b"id_tycho")?,
             hip: reader.ordinal(b"hip")?,
@@ -56,9 +56,6 @@ impl Ordinals for TycOrdinals {
         })
     }
 }
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct TycId(pub i64);
 
 #[derive(Debug)]
 pub struct TycStar {
@@ -154,12 +151,12 @@ impl VotableRecord for TycStar {
     type Ordinals = TycOrdinals;
     type Id = TycId;
 
-    fn from_accessor(accessor: &RecordAccessor, ordinals: &TycOrdinals) -> Result<Self, Error> {
+    fn from_accessor(accessor: &RecordAccessor, ordinals: &TycOrdinals) -> Result<Self, AppError> {
         Ok(Self {
             tyc: TycId(
                 accessor
                     .read_i64(ordinals.id_tycho)?
-                    .ok_or(Error::missing_id("id_tycho"))?,
+                    .ok_or(AppError::missing_id("id_tycho"))?,
             ),
             hip: accessor.read_i32(ordinals.hip)?.map(HipId),
             cmp: accessor.read_char(ordinals.cmp)?,

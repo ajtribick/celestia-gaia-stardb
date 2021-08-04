@@ -22,5 +22,6 @@ from pathlib import Path
 
 GAIA_DR2_DIR = Path('data', 'gaiadr2')
 GAIA_EDR3_DIR = Path('data', 'gaiaedr3')
+HIP2_DIST_DIR = Path('data', 'hip2dist')
 VIZIER_DIR = Path('data', 'vizier')
 XMATCH_DIR = Path('data', 'xmatch')

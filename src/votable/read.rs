@@ -33,9 +33,9 @@ use quick_xml::{
 };
 
 use super::{DataType, VOTABLE_NS};
-use crate::error::Error;
+use crate::error::AppError;
 
-fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), Error> {
+fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), AppError> {
     let mut name = None;
     let mut datatype = None;
     let mut is_variable_length_array = false;
@@ -48,7 +48,7 @@ fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), Error> {
                 if attribute.value.as_ref() == b"*" {
                     is_variable_length_array = true;
                 } else {
-                    return Err(Error::parse("Fixed size arrays not supported"));
+                    return Err(AppError::parse("Fixed size arrays not supported"));
                 }
             }
             _ => (),
@@ -57,12 +57,12 @@ fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), Error> {
 
     match (name, datatype) {
         (Some(n), Some(DataType::Char)) if is_variable_length_array => Ok((n, DataType::Char)),
-        (Some(_), Some(DataType::Char)) => Err(Error::parse("Char fields not supported")),
+        (Some(_), Some(DataType::Char)) => Err(AppError::parse("Char fields not supported")),
         (Some(_), Some(_)) if is_variable_length_array => {
-            Err(Error::parse("Non-string arrays not supported"))
+            Err(AppError::parse("Non-string arrays not supported"))
         }
         (Some(n), Some(dt)) => Ok((n, dt)),
-        _ => Err(Error::parse("Field must have name and datatype")),
+        _ => Err(AppError::parse("Field must have name and datatype")),
     }
 }
 
@@ -77,7 +77,7 @@ pub struct VotableReader<R: Read> {
 }
 
 impl<R: Read> VotableReader<R> {
-    pub fn new(source: R) -> Result<Self, Error> {
+    pub fn new(source: R) -> Result<Self, AppError> {
         let decoder = GzDecoder::new(source);
         let buf_reader = BufReader::new(decoder);
         let mut xml_reader = XmlReader::from_reader(buf_reader);
@@ -115,11 +115,11 @@ impl<R: Read> VotableReader<R> {
         }
 
         if field_offsets.len() == 0 {
-            return Err(Error::parse("No fields found in file"));
+            return Err(AppError::parse("No fields found in file"));
         }
 
         if !is_binary2 {
-            return Err(Error::parse("Format not supported"));
+            return Err(AppError::parse("Format not supported"));
         }
 
         let mask_width = (field_offsets.len() + 7) / 8;
@@ -138,14 +138,14 @@ impl<R: Read> VotableReader<R> {
         })
     }
 
-    pub fn ordinal(&self, name: &[u8]) -> Result<usize, Error> {
+    pub fn ordinal(&self, name: &[u8]) -> Result<usize, AppError> {
         self.field_names
             .get(name)
             .copied()
-            .ok_or_else(|| Error::MissingField(name.to_owned().into()))
+            .ok_or_else(|| AppError::MissingField(name.to_owned().into()))
     }
 
-    pub fn read(&mut self) -> Result<Option<RecordAccessor>, Error> {
+    pub fn read(&mut self) -> Result<Option<RecordAccessor>, AppError> {
         let has_record = if self.has_dynamic_lengths {
             self.read_dynamic()?
         } else {
@@ -166,12 +166,12 @@ impl<R: Read> VotableReader<R> {
         Ok(result)
     }
 
-    fn read_fixed(&mut self) -> Result<bool, Error> {
+    fn read_fixed(&mut self) -> Result<bool, AppError> {
         let mut length = 0;
         while length < self.buffer.len() {
             length += match self.reader.read(&mut self.buffer[length..]) {
                 Ok(0) if length == 0 => return Ok(false),
-                Ok(0) => return Err(Error::Io(ErrorKind::UnexpectedEof.into())),
+                Ok(0) => return Err(AppError::Io(ErrorKind::UnexpectedEof.into())),
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e.into()),
@@ -181,13 +181,13 @@ impl<R: Read> VotableReader<R> {
         Ok(true)
     }
 
-    fn read_dynamic(&mut self) -> Result<bool, Error> {
+    fn read_dynamic(&mut self) -> Result<bool, AppError> {
         let mut length = 0;
         self.buffer.resize(self.mask_width, 0);
         while length < self.mask_width {
             length += match self.reader.read(&mut self.buffer[length..]) {
                 Ok(0) if length == 0 => return Ok(false),
-                Ok(0) => return Err(Error::Io(ErrorKind::UnexpectedEof.into())),
+                Ok(0) => return Err(AppError::Io(ErrorKind::UnexpectedEof.into())),
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e.into()),
@@ -230,10 +230,10 @@ pub struct RecordAccessor<'a> {
 }
 
 impl<'a> RecordAccessor<'a> {
-    pub fn read_i16(&self, ordinal: usize) -> Result<Option<i16>, Error> {
+    pub fn read_i16(&self, ordinal: usize) -> Result<Option<i16>, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Short {
-            return Err(Error::field_type(ordinal, DataType::Short, field_type));
+            return Err(AppError::field_type(ordinal, DataType::Short, field_type));
         }
 
         if self.mask[ordinal] {
@@ -246,10 +246,10 @@ impl<'a> RecordAccessor<'a> {
         ))
     }
 
-    pub fn read_i32(&self, ordinal: usize) -> Result<Option<i32>, Error> {
+    pub fn read_i32(&self, ordinal: usize) -> Result<Option<i32>, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Int {
-            return Err(Error::field_type(ordinal, DataType::Int, field_type));
+            return Err(AppError::field_type(ordinal, DataType::Int, field_type));
         }
 
         if self.mask[ordinal] {
@@ -262,10 +262,10 @@ impl<'a> RecordAccessor<'a> {
         ))
     }
 
-    pub fn read_i64(&self, ordinal: usize) -> Result<Option<i64>, Error> {
+    pub fn read_i64(&self, ordinal: usize) -> Result<Option<i64>, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Long {
-            return Err(Error::field_type(ordinal, DataType::Long, field_type));
+            return Err(AppError::field_type(ordinal, DataType::Long, field_type));
         }
 
         if self.mask[ordinal] {
@@ -278,10 +278,10 @@ impl<'a> RecordAccessor<'a> {
         ))
     }
 
-    pub fn read_f32(&self, ordinal: usize) -> Result<f32, Error> {
+    pub fn read_f32(&self, ordinal: usize) -> Result<f32, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Float {
-            return Err(Error::field_type(ordinal, DataType::Float, field_type));
+            return Err(AppError::field_type(ordinal, DataType::Float, field_type));
         }
 
         if self.mask[ordinal] {
@@ -292,10 +292,10 @@ impl<'a> RecordAccessor<'a> {
         Ok((&self.data[offset..offset + mem::size_of::<f32>()]).read_f32::<BigEndian>()?)
     }
 
-    pub fn read_f64(&self, ordinal: usize) -> Result<f64, Error> {
+    pub fn read_f64(&self, ordinal: usize) -> Result<f64, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Double {
-            return Err(Error::field_type(ordinal, DataType::Double, field_type));
+            return Err(AppError::field_type(ordinal, DataType::Double, field_type));
         }
 
         if self.mask[ordinal] {
@@ -306,10 +306,10 @@ impl<'a> RecordAccessor<'a> {
         Ok((&self.data[offset..offset + mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
     }
 
-    pub fn read_char(&self, ordinal: usize) -> Result<Option<Vec<u8>>, Error> {
+    pub fn read_char(&self, ordinal: usize) -> Result<Option<Vec<u8>>, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Char {
-            return Err(Error::field_type(ordinal, DataType::Char, field_type));
+            return Err(AppError::field_type(ordinal, DataType::Char, field_type));
         }
 
         if self.mask[ordinal] {

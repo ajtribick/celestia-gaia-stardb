@@ -30,6 +30,7 @@ from typing import Generator, IO, Optional, TextIO
 
 import astropy.io.ascii as io_ascii
 import numpy as np
+import requests
 from astropy.table import Table
 from astropy.units import UnitsWarning
 
@@ -49,6 +50,30 @@ def confirm_action(prompt: str, default: bool=False) -> bool:
             return True
         if answer in ('n', 'N'):
             return False
+
+
+def proceed_checkfile(path: Path) -> bool:
+    """Check if a file exists, if so prompt the user if they want to replace it."""
+    if path.exists():
+        if confirm_action(f'{path} already exists, replace?'):
+            path.unlink()
+        else:
+            return False
+    return True
+
+
+def download_file(path: Path, url: str) -> bool:
+    """Download a file using requests."""
+    if not proceed_checkfile(path):
+        return
+
+    print(f'Downloading {url}')
+    response = requests.get(url, stream=True)
+    if response.status_code == 200:
+        with path.open('wb') as f:
+            f.write(response.raw.read())
+    else:
+        print('Failed to download')
 
 
 class TarCds:

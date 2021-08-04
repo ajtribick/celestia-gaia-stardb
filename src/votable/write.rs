@@ -32,7 +32,7 @@ use quick_xml::{
 };
 
 use super::{FieldGetter, VotableRecord};
-use crate::error::Error;
+use crate::error::AppError;
 
 pub struct VotableWriter<W: Write> {
     writer: Option<Writer<W>>,
@@ -44,7 +44,7 @@ pub struct VotableWriter<W: Write> {
 }
 
 impl<W: Write> VotableWriter<W> {
-    pub fn new(inner: W) -> Result<Self, Error> {
+    pub fn new(inner: W) -> Result<Self, AppError> {
         let mut writer = Writer::new(inner);
         writer.write_event(Event::Decl(BytesDecl::new(b"1.0", Some(b"UTF-8"), None)))?;
         writer.write(b"\n")?;
@@ -76,7 +76,7 @@ impl<W: Write> VotableWriter<W> {
         })
     }
 
-    pub fn write_fields<T: VotableRecord>(&mut self) -> Result<(), Error> {
+    pub fn write_fields<T: VotableRecord>(&mut self) -> Result<(), AppError> {
         let writer = self
             .writer
             .as_mut()
@@ -130,7 +130,7 @@ impl<W: Write> VotableWriter<W> {
         Ok(())
     }
 
-    pub fn add_data<T: VotableRecord>(&mut self, data: &T) -> Result<(), Error> {
+    pub fn add_data<T: VotableRecord>(&mut self, data: &T) -> Result<(), AppError> {
         for field in T::fields() {
             match field.getter {
                 FieldGetter::Short(f) => {
@@ -176,7 +176,7 @@ impl<W: Write> VotableWriter<W> {
         Ok(())
     }
 
-    pub fn write_row(&mut self) -> Result<(), Error> {
+    pub fn write_row(&mut self) -> Result<(), AppError> {
         assert_eq!(
             self.mask_data.len(),
             self.field_count,
@@ -214,7 +214,7 @@ impl<W: Write> VotableWriter<W> {
         Ok(())
     }
 
-    pub fn finish(self) -> Result<W, Error> {
+    pub fn finish(self) -> Result<W, AppError> {
         let mut writer = match self.data_writer {
             Some(data_writer) => {
                 let mut writer = data_writer.finish()?;
@@ -260,7 +260,7 @@ impl<W: Write> Base64Writer<W> {
         }
     }
 
-    pub fn finish(mut self) -> Result<Writer<W>, Error> {
+    pub fn finish(mut self) -> Result<Writer<W>, AppError> {
         if self.position == 0 {
             return Ok(self.writer);
         }

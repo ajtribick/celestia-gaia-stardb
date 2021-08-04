@@ -19,7 +19,6 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap},
-    hash::Hash,
     io::{Read, Write},
 };
 
@@ -28,8 +27,8 @@ use lazy_static::lazy_static;
 use crate::votable::FieldInfo;
 
 use super::{
-    astro::{ProperMotion, SkyCoords},
-    error::Error,
+    astro::{GaiaId, ProperMotion, SkyCoords},
+    error::AppError,
     votable::{Ordinals, RecordAccessor, VotableReader, VotableRecord, VotableWriter},
 };
 
@@ -63,7 +62,7 @@ pub struct GaiaOrdinals {
 }
 
 impl Ordinals for GaiaOrdinals {
-    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, Error> {
+    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, AppError> {
         Ok(Self {
             source_id: reader.ordinal(b"source_id")?,
             ra: reader.ordinal(b"ra")?,
@@ -83,9 +82,6 @@ impl Ordinals for GaiaOrdinals {
         })
     }
 }
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub struct GaiaId(pub i64);
 
 #[derive(Debug)]
 pub struct GaiaStar {
@@ -217,12 +213,12 @@ impl VotableRecord for GaiaStar {
     type Ordinals = GaiaOrdinals;
     type Id = GaiaId;
 
-    fn from_accessor(accessor: &RecordAccessor, ordinals: &GaiaOrdinals) -> Result<Self, Error> {
+    fn from_accessor(accessor: &RecordAccessor, ordinals: &GaiaOrdinals) -> Result<Self, AppError> {
         let mut gaia_star = Self {
             source_id: GaiaId(
                 accessor
                     .read_i64(ordinals.source_id)?
-                    .ok_or(Error::missing_id("source_id"))?,
+                    .ok_or(AppError::missing_id("source_id"))?,
             ),
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.ra)?,
@@ -301,7 +297,7 @@ where
         }
     }
 
-    pub fn add_reader(&mut self, mut reader: VotableReader<impl Read>) -> Result<(), Error> {
+    pub fn add_reader(&mut self, mut reader: VotableReader<impl Read>) -> Result<(), AppError> {
         let source_ordinals = <A as VotableRecord>::Ordinals::from_reader(&reader)?;
         let crossmatch_ordinals = <B as VotableRecord>::Ordinals::from_reader(&reader)?;
 
@@ -320,7 +316,7 @@ where
         Ok(())
     }
 
-    pub fn finalize(mut self, writer: impl Write) -> Result<(), Error> {
+    pub fn finalize(mut self, writer: impl Write) -> Result<(), AppError> {
         println!("Found {} distinct source stars", self.source_stars.len());
         self.matches
             .sort_unstable_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
