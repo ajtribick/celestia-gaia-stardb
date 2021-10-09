@@ -17,7 +17,7 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{fmt, hash::Hash, io::Read, num::NonZeroUsize};
+use std::{fmt, num::NonZeroUsize};
 
 use super::error::AppError;
 
@@ -28,22 +28,6 @@ pub use read::{RecordAccessor, VotableReader};
 pub use write::VotableWriter;
 
 const VOTABLE_NS: &[u8] = b"http://www.ivoa.net/xml/VOTable/v1.3";
-
-pub trait Ordinals: Sized {
-    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, AppError>;
-}
-
-pub trait VotableRecord: Sized + 'static {
-    type Ordinals: Ordinals;
-    type Id: Eq + Hash + Copy;
-
-    fn from_accessor(
-        accessor: &RecordAccessor,
-        ordinals: &Self::Ordinals,
-    ) -> Result<Self, AppError>;
-    fn id(&self) -> Self::Id;
-    fn fields() -> &'static [FieldInfo<Self>];
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataType {
@@ -95,14 +79,12 @@ impl fmt::Display for DataType {
 
 enum FieldGetter<R> {
     Short(fn(&R) -> Option<i16>),
-    Int(fn(&R) -> Option<i32>),
     Long(fn(&R) -> Option<i64>),
     Float(fn(&R) -> f32),
     Double(fn(&R) -> f64),
-    Char(fn(&R) -> Option<&[u8]>),
 }
 
-pub struct FieldInfo<R: VotableRecord> {
+pub struct FieldInfo<R> {
     name: &'static str,
     unit: Option<&'static str>,
     ucd: Option<&'static str>,
@@ -110,7 +92,7 @@ pub struct FieldInfo<R: VotableRecord> {
     getter: FieldGetter<R>,
 }
 
-impl<R: VotableRecord> FieldInfo<R> {
+impl<R> FieldInfo<R> {
     pub fn short(
         name: &'static str,
         unit: Option<&'static str>,
@@ -124,22 +106,6 @@ impl<R: VotableRecord> FieldInfo<R> {
             ucd,
             description,
             getter: FieldGetter::Short(getter),
-        }
-    }
-
-    pub fn int(
-        name: &'static str,
-        unit: Option<&'static str>,
-        ucd: Option<&'static str>,
-        description: &'static str,
-        getter: fn(&R) -> Option<i32>,
-    ) -> Self {
-        Self {
-            name,
-            unit,
-            ucd,
-            description,
-            getter: FieldGetter::Int(getter),
         }
     }
 
@@ -188,22 +154,6 @@ impl<R: VotableRecord> FieldInfo<R> {
             ucd,
             description,
             getter: FieldGetter::Double(getter),
-        }
-    }
-
-    pub fn char(
-        name: &'static str,
-        unit: Option<&'static str>,
-        ucd: Option<&'static str>,
-        description: &'static str,
-        getter: fn(&R) -> Option<&[u8]>,
-    ) -> Self {
-        Self {
-            name,
-            unit,
-            ucd,
-            description,
-            getter: FieldGetter::Char(getter),
         }
     }
 }

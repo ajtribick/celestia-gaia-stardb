@@ -19,7 +19,6 @@
 
 use std::{
     cmp,
-    convert::TryInto,
     io::{self, ErrorKind, Write},
     mem,
 };
@@ -31,7 +30,7 @@ use quick_xml::{
     Writer,
 };
 
-use super::{FieldGetter, VotableRecord};
+use super::{FieldGetter, FieldInfo};
 use crate::error::AppError;
 
 pub struct VotableWriter<W: Write> {
@@ -76,20 +75,18 @@ impl<W: Write> VotableWriter<W> {
         })
     }
 
-    pub fn write_fields<T: VotableRecord>(&mut self) -> Result<(), AppError> {
+    pub fn write_fields<T>(&mut self, fields: &[FieldInfo<T>]) -> Result<(), AppError> {
         let writer = self
             .writer
             .as_mut()
             .expect("Cannot add fields after data is written");
-        for field in T::fields() {
+        for field in fields {
             let (data_type, array_size, data_size): (&[u8], Option<&str>, usize) =
                 match field.getter {
                     FieldGetter::Short(_) => (b"short", None, mem::size_of::<i16>()),
-                    FieldGetter::Int(_) => (b"int", None, mem::size_of::<i32>()),
                     FieldGetter::Long(_) => (b"long", None, mem::size_of::<i64>()),
                     FieldGetter::Float(_) => (b"float", None, mem::size_of::<f32>()),
                     FieldGetter::Double(_) => (b"double", None, mem::size_of::<f64>()),
-                    FieldGetter::Char(_) => (b"char", Some("*"), mem::size_of::<u32>()),
                 };
 
             self.field_count += 1;
@@ -130,17 +127,12 @@ impl<W: Write> VotableWriter<W> {
         Ok(())
     }
 
-    pub fn add_data<T: VotableRecord>(&mut self, data: &T) -> Result<(), AppError> {
-        for field in T::fields() {
+    pub fn add_data<T>(&mut self, data: &T, fields: &[FieldInfo<T>]) -> Result<(), AppError> {
+        for field in fields {
             match field.getter {
                 FieldGetter::Short(f) => {
                     let (value, mask) = f(data).map_or((Default::default(), true), |x| (x, false));
                     self.field_data.write_i16::<BigEndian>(value)?;
-                    self.mask_data.push(mask);
-                }
-                FieldGetter::Int(f) => {
-                    let (value, mask) = f(data).map_or((Default::default(), true), |x| (x, false));
-                    self.field_data.write_i32::<BigEndian>(value)?;
                     self.mask_data.push(mask);
                 }
                 FieldGetter::Long(f) => {
@@ -158,18 +150,6 @@ impl<W: Write> VotableWriter<W> {
                     self.field_data.write_f64::<BigEndian>(value)?;
                     self.mask_data.push(value.is_nan());
                 }
-                FieldGetter::Char(f) => match f(data) {
-                    Some(s) => {
-                        let length = s.len().try_into().unwrap_or(u32::MAX);
-                        self.field_data.write_u32::<BigEndian>(length)?;
-                        self.field_data.extend_from_slice(&s[..length as usize]);
-                        self.mask_data.push(length == 0);
-                    }
-                    None => {
-                        self.field_data.write_u32::<BigEndian>(0)?;
-                        self.mask_data.push(true);
-                    }
-                },
             }
         }
 

@@ -19,11 +19,10 @@
 
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::Entry},
     fs::{read_dir, File},
-    io::{BufWriter, Write},
     iter::FromIterator,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use flate2::{write::GzEncoder, Compression};
@@ -39,13 +38,11 @@ mod votable;
 mod xmatch;
 
 use crate::{
+    astro::{HipId, TycId},
     error::AppError,
     hip2dist::estimate_distances,
-    votable::{VotableReader, VotableRecord},
-    xmatch::{
-        hip_csv_crossmatch, tyc_csv_crossmatch, Crossmatchable, Crossmatcher, GaiaStar, HipStar,
-        TycStar,
-    },
+    votable::VotableReader,
+    xmatch::Crossmatcher,
 };
 
 const HIP_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";
@@ -53,24 +50,55 @@ const TYC_PATTERN: &str = "**/gaiaedr3-tyctdsc-*.vot.gz";
 const XMATCH_PATTERN: &str = "**/xmatch-*.vot.gz";
 const DISTANCE_PATTERN: &str = "**/gaiaedr3-distance-*.vot.gz";
 
-fn crossmatch_directory<A, B>(path: &Path, pattern: &str, output_name: &str) -> Result<(), AppError>
-where
-    A: VotableRecord + Crossmatchable<B>,
-    B: VotableRecord,
-{
-    let mut crossmatcher = Crossmatcher::<A, B>::new();
+fn load_tyc2hip(path: &Path) -> Result<HashMap<TycId, HipId>, AppError> {
+    let mut path = PathBuf::from(path);
+    path.push("tyc2tdsc_hip_xmatch.vot.gz");
 
-    let pattern = Glob::new(pattern)?.compile_matcher();
-    for entry_result in read_dir(path)? {
-        let entry = entry_result?;
-        let entry_path = entry.path();
-        if !pattern.is_match(&entry_path) || !entry.metadata()?.is_file() {
-            continue;
+    let file = File::open(path)?;
+    let mut reader = VotableReader::new(file)?;
+
+    let id_tycho_col = reader.ordinal(b"id_tycho")?;
+    let hip_col = reader.ordinal(b"hip")?;
+    let comp_col = reader.ordinal(b"cmp")?;
+
+    let mut hip2tyc = HashMap::new();
+    while let Some(accessor) = reader.read()? {
+        let id_tycho = TycId(accessor.read_i64(id_tycho_col)?.ok_or(AppError::missing_id("id_tycho"))?);
+        let hip = HipId(accessor.read_i32(hip_col)?.ok_or(AppError::missing_id("hip"))?);
+        let cmp = accessor.read_char::<2>(comp_col)?;
+
+        match hip2tyc.entry(hip) {
+            Entry::Vacant(v) => { v.insert((id_tycho, cmp)); },
+            Entry::Occupied(mut o) => {
+                if &cmp < &o.get().1 {
+                    o.insert((id_tycho, cmp));
+                }
+            }
         }
+    }
 
-        let file = File::open(entry_path)?;
-        let reader = VotableReader::new(file)?;
-        crossmatcher.add_reader(reader)?;
+    Ok(hip2tyc.iter().map(|(h, (t, _))| (*t, *h)).collect())
+}
+
+fn full_crossmatch(path: &Path, output_name: &str) -> Result<(), AppError> {
+    let tyc2hip = load_tyc2hip(path)?;
+    let mut crossmatcher = Crossmatcher::new(tyc2hip);
+
+    let hip_pattern = Glob::new(HIP_PATTERN)?.compile_matcher();
+    let tyc_pattern = Glob::new(TYC_PATTERN)?.compile_matcher();
+    for entry in read_dir(path)? {
+        let entry = entry?;
+        if !entry.metadata()?.is_file() { continue; }
+        let entry_path = entry.path();
+        if hip_pattern.is_match(&entry_path) {
+            let file = File::open(entry_path)?;
+            let reader = VotableReader::new(file)?;
+            crossmatcher.add_hip(reader)?;
+        } else if tyc_pattern.is_match(&entry_path) {
+            let file = File::open(entry_path)?;
+            let reader = VotableReader::new(file)?;
+            crossmatcher.add_tyc(reader)?;
+        }
     }
 
     let mut output_path = path.to_path_buf();
@@ -172,33 +200,14 @@ fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, AppE
 #[pymodule]
 fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m)]
-    #[pyo3(name = "build_hip_xmatch", text_signature = "(gaia_dir, output_name, /)")]
-    fn build_hip_xmatch_py<'py>(
+    #[pyo3(name = "build_xmatch", text_signature = "()")]
+    fn build_xmatch_py<'py>(
         _py: Python<'py>,
         gaia_dir: &PyAny,
         output_name: &str,
     ) -> PyResult<()> {
-        crossmatch_directory::<HipStar, GaiaStar>(
-            gaia_dir.str()?.to_str()?.as_ref(),
-            HIP_PATTERN,
-            output_name,
-        )?;
+        full_crossmatch(gaia_dir.str()?.to_str()?.as_ref(), output_name)?;
         Ok(())
-    }
-
-    #[pyfn(m)]
-    #[pyo3(name = "build_tyc_xmatch", text_signature = "(gaia_dir, output_name, /)")]
-    fn build_tyc_xmatch_py<'py>(
-        _py: Python<'py>,
-        gaia_dir: &PyAny,
-        output_name: &str,
-    ) -> PyResult<()> {
-        crossmatch_directory::<TycStar, GaiaStar>(
-            gaia_dir.str()?.to_str()?.as_ref(),
-            TYC_PATTERN,
-            output_name,
-        )
-        .map_err(Into::into)
     }
 
     #[pyfn(m)]
@@ -238,38 +247,6 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
             output_file.str()?.to_str()?.to_owned(),
         )
         .map_err(Into::into)
-    }
-
-    #[pyfn(m)]
-    #[pyo3(name = "create_hip_aux_xmatch", text_signature = "(crossmatch_file, output_file, /)")]
-    fn create_hip_aux_xmatch_py<'py>(
-        _py: Python<'py>,
-        crossmatch_file: &'py PyAny,
-        output_file: &'py PyAny,
-    ) -> PyResult<()> {
-        let input = File::open(crossmatch_file.str()?.to_str()?)?;
-        let reader = VotableReader::new(input)?;
-        let output = File::create(output_file.str()?.to_str()?)?;
-        let mut writer = BufWriter::new(output);
-        hip_csv_crossmatch(reader, &mut writer)?;
-        writer.flush()?;
-        Ok(())
-    }
-
-    #[pyfn(m)]
-    #[pyo3(name = "create_tyc_aux_xmatch", text_signature = "(crossmatch_file, output_file, /)")]
-    fn create_tyc_aux_xmatch_py<'py>(
-        _py: Python<'py>,
-        crossmatch_file: &'py PyAny,
-        output_file: &'py PyAny,
-    ) -> PyResult<()> {
-        let input = File::open(crossmatch_file.str()?.to_str()?)?;
-        let reader = VotableReader::new(input)?;
-        let output = File::create(output_file.str()?.to_str()?)?;
-        let mut writer = BufWriter::new(output);
-        tyc_csv_crossmatch(reader, &mut writer)?;
-        writer.flush()?;
-        Ok(())
     }
 
     Ok(())
