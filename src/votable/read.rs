@@ -20,10 +20,12 @@
 use std::{
     cmp,
     collections::HashMap,
+    convert::TryInto,
     io::{self, BufRead, BufReader, ErrorKind, Read},
     mem,
 };
 
+use arrayvec::ArrayVec;
 use bitvec::prelude::*;
 use byteorder::{BigEndian, ReadBytesExt};
 use flate2::read::GzDecoder;
@@ -308,20 +310,20 @@ impl<'a> RecordAccessor<'a> {
         Ok((&self.data[offset..offset + mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
     }
 
-    pub fn read_char(&self, ordinal: usize) -> Result<Option<Vec<u8>>, AppError> {
+    pub fn read_char<const CAP: usize>(&self, ordinal: usize) -> Result<ArrayVec<u8, CAP>, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Char {
             return Err(AppError::field_type(ordinal, DataType::Char, field_type));
         }
 
         if self.mask[ordinal] {
-            return Ok(None);
+            return Ok(ArrayVec::new());
         }
 
         let offset = self.field_offsets[ordinal];
         let data_offset = offset + mem::size_of::<u32>();
         let length = (&self.data[offset..data_offset]).read_u32::<BigEndian>()? as usize;
-        Ok(Some(self.data[data_offset..data_offset + length].to_vec()))
+        Ok(self.data[data_offset..data_offset + length].try_into()?)
     }
 }
 

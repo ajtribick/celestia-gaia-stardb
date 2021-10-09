@@ -32,6 +32,7 @@ pub enum AppError {
     MissingId(String),
     Io(io::Error),
     Xml(quick_xml::Error),
+    Capacity(arrayvec::CapacityError),
     Other(Box<dyn error::Error + Send>),
     Thread(Box<dyn Any + Send + 'static>),
 }
@@ -67,6 +68,7 @@ impl fmt::Display for AppError {
             Self::MissingId(s) => write!(f, "Missing ID ({})", s),
             Self::Io(e) => write!(f, "Io error: {}", e),
             Self::Xml(e) => write!(f, "XML error: {}", e),
+            Self::Capacity(e) => write!(f, "Capacity error: {}", e),
             Self::Other(e) => write!(f, "Error: {}", e),
             Self::Thread(e) => write!(f, "Thread error {:?}", e),
         }
@@ -78,6 +80,7 @@ impl error::Error for AppError {
         match self {
             Self::Io(e) => Some(e),
             Self::Xml(e) => Some(e),
+            Self::Capacity(e) => Some(e),
             Self::Other(e) => Some(e.as_ref()),
             _ => None,
         }
@@ -99,6 +102,12 @@ impl From<io::ErrorKind> for AppError {
 impl From<quick_xml::Error> for AppError {
     fn from(e: quick_xml::Error) -> Self {
         Self::Xml(e)
+    }
+}
+
+impl From<arrayvec::CapacityError> for AppError {
+    fn from(e: arrayvec::CapacityError) -> Self {
+        Self::Capacity(e)
     }
 }
 

@@ -11,6 +11,7 @@ name = "celestia_gaia"
 crate-type = ["cdylib"]
 
 [dependencies]
+arrayvec = "0.7.1"
 base64 = "0.13.0"
 bitvec = "0.22.3"
 byteorder = "1.4"

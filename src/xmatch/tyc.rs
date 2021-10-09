@@ -19,6 +19,7 @@
 
 use std::io::{Read, Write};
 
+use arrayvec::ArrayVec;
 use lazy_static::lazy_static;
 
 use super::{Crossmatchable, GaiaStar};
@@ -61,7 +62,7 @@ impl Ordinals for TycOrdinals {
 pub struct TycStar {
     pub tyc: TycId,
     pub hip: Option<HipId>,
-    pub cmp: Option<Vec<u8>>,
+    pub cmp: ArrayVec<u8, 2>,
     pub coords: SkyCoords,
     pub bt_mag: f32,
     pub vt_mag: f32,
@@ -100,7 +101,7 @@ lazy_static! {
             None,
             Some("meta.id.part"),
             "Component designation",
-            |t| t.cmp.as_deref(),
+            |t| if t.cmp.is_empty() { None } else { Some(&t.cmp) },
         ),
         FieldInfo::double(
             "tyc_ra",
