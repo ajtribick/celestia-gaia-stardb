@@ -89,6 +89,17 @@ steps below **before** you begin.
   Anderson & Francis (2012), AstL 38(5), pp.331–346 "XHIP: An extended
   Hipparcos compilation"
 
+- The Tycho-2 Catalogue (http://cdsarc.u-strasbg.fr/viz-bin/cat/I/259)
+
+  Høg et al. (2000), A&A 355 pp.L27–L30 "The Tycho-2 catalogue of the 2.5
+  million brightest stars"
+
+- Tycho Double Star Catalogue (TDSC)
+  (https://cdsarc.cds.unistra.fr/viz-bin/cat/I/276)
+
+  Fabricius et al. (2002), A&A 384 pp.180–189 "The Tycho double star
+  catalogue"
+
 - ASCC-2.5, 3rd version (http://cdsarc.u-strasbg.fr/viz-bin/cat/I/280B)
 
   Kharchenko (2001), Kinematika i Fizika Nebesnykh Tel 17(5), pp.409-423
@@ -159,11 +170,6 @@ steps below **before** you begin.
 
   van Leeuwen (2007), A&A 474(2) pp.653–664 "Validation of the new Hipparcos
   reduction"
-
-- The Tycho-2 Catalogue (http://cdsarc.u-strasbg.fr/viz-bin/cat/I/259)
-
-  Høg et al. (2000), A&A 355 pp.L27–L30 "The Tycho-2 catalogue of the 2.5
-  million brightest stars"
 
 - Henry Draper Catalogue and Extension
   (http://cdsarc.u-strasbg.fr/viz-bin/cat/III/135A)
