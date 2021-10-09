@@ -103,10 +103,12 @@ fn full_crossmatch(path: &Path, output_name: &str) -> Result<(), AppError> {
         }
         let entry_path = entry.path();
         if hip_pattern.is_match(&entry_path) {
+            println!("Processing HIP entry: {}", entry_path.to_string_lossy());
             let file = File::open(entry_path)?;
             let reader = VotableReader::new(file)?;
             crossmatcher.add_hip(reader)?;
         } else if tyc_pattern.is_match(&entry_path) {
+            println!("Processing TYC entry: {}", entry_path.to_string_lossy());
             let file = File::open(entry_path)?;
             let reader = VotableReader::new(file)?;
             crossmatcher.add_tyc(reader)?;

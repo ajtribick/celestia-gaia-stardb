@@ -21,7 +21,7 @@
 
 from celestia_gaia.download_data import download_vizier, download_sao_xmatch
 from celestia_gaia.gaia_data import (
-    build_xmatches, download_gaia, download_gaia_distances, create_aux_xmatch_files,
+    build_xmatches, download_gaia, download_gaia_distances,
 )
 from celestia_gaia.hip_dist import download_dist_prior, build_hip2_distances
 
@@ -31,5 +31,4 @@ build_hip2_distances()
 download_sao_xmatch()
 download_gaia()
 build_xmatches()
-create_aux_xmatch_files()
 download_gaia_distances()

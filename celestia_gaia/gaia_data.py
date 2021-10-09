@@ -25,13 +25,10 @@ from astropy.table import Table
 from astroquery.gaia import Gaia
 import numpy as np
 
-from .directories import AUXFILES_DIR, GAIA_EDR3_DIR
+from .directories import GAIA_EDR3_DIR
 from .ranges import MultiRange
 from .utils import confirm_action
-from .celestia_gaia import (
-    build_hip_xmatch, build_tyc_xmatch, create_hip_aux_xmatch, create_tyc_aux_xmatch,
-    get_required_dist_source_ids,
-)
+from .celestia_gaia import build_xmatch, get_required_dist_source_ids
 
 
 _HIP_MAX = 120404
@@ -190,23 +187,13 @@ def download_gaia() -> None:
     download_gaia_tyc(tyc_ranges)
 
 
-HIP_XMATCH = 'xmatch-gaia-hip.vot.gz'
-TYC_XMATCH = 'xmatch-gaia-tyc.vot.gz'
-
-
 def build_xmatches() -> None:
     """Build the cross-matches"""
     if (
-        not (GAIA_EDR3_DIR/HIP_XMATCH).exists()
-        or confirm_action('Re-generate Hipparcos cross-match?')
+        not (GAIA_EDR3_DIR/'xmatch-gaia-hiptyc.vot.gz').exists()
+        or confirm_action('Re-generate HIP/TYC cross-match?')
     ):
-        build_hip_xmatch(GAIA_EDR3_DIR, HIP_XMATCH)
-
-    if (
-        not (GAIA_EDR3_DIR/TYC_XMATCH).exists()
-        or confirm_action('Re-generate Tycho cross-match?')
-    ):
-        build_tyc_xmatch(GAIA_EDR3_DIR, TYC_XMATCH)
+        build_xmatch(GAIA_EDR3_DIR, 'xmatch-gaia-hiptyc.vot.gz')
 
 
 def download_gaia_distances(chunk_size: int = 250000) -> None:
@@ -244,20 +231,3 @@ FROM
         position = next_position
         part += 1
         p += 1
-
-
-def create_aux_xmatch_files() -> None:
-    """Creates the auxiliary cross-match CSV files"""
-    hip_xmatch_file = AUXFILES_DIR/'hip-gaia-xmatch.csv'
-    if (
-        not hip_xmatch_file.exists()
-        or confirm_action('HIP-Gaia xmatch csv exists, re-create it?')
-    ):
-        create_hip_aux_xmatch(GAIA_EDR3_DIR/HIP_XMATCH, hip_xmatch_file)
-
-    tyc_xmatch_file = AUXFILES_DIR/'tyc-gaia-xmatch.csv'
-    if (
-        not tyc_xmatch_file.exists()
-        or confirm_action('TYC-Gaia xmatch csv exists, re-create it?')
-    ):
-        create_tyc_aux_xmatch(GAIA_EDR3_DIR/TYC_XMATCH, tyc_xmatch_file)

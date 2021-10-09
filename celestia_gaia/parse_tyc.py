@@ -29,8 +29,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from .celestia_gaia import apply_distances
-from .directories import GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import VIZIER_DIR, XMATCH_DIR
 from .utils import TarCds, WorkaroundCDSReader, open_cds_tarfile
 
 
@@ -98,48 +97,16 @@ TYC_HD_ERRATA = {
 }
 
 
-def parse_tyc_string(data: Table, src_column: str, dest_column: str='TYC') -> None:
-    """Parse a TYC string into a synthetic HIP identifier."""
-    tycs = np.array(np.char.split(data[src_column], '-').tolist()).astype(np.int64)
-    data[dest_column] = make_tyc(tycs[:, 0], tycs[:, 1], tycs[:, 2])
-    data.remove_column(src_column)
-
-
 def parse_tyc_cols(
     data: Table,
     src_columns: tuple[str, str, str] = ('TYC1', 'TYC2', 'TYC3'),
-    dest_column: str='TYC'
+    dest_column: str='HIP'
 ) -> None:
     """Convert TYC identifier components into a synthetic HIP identifier."""
     data[dest_column] = make_tyc(
         data[src_columns[0]], data[src_columns[1]], data[src_columns[2]],
     )
     data.remove_columns(src_columns)
-
-
-def load_gaia_tyc() -> Table:
-    """Load the Gaia DR2 TYC2 sources."""
-    print('Loading Gaia DR2 sources for TYC2')
-
-    gaia = Table.read(GAIA_EDR3_DIR/'xmatch-gaia-tyc.vot.gz', format='votable')
-
-    gaia['TYC'] = make_tyc(
-        gaia['id_tycho'] // 1000000,
-        (gaia['id_tycho'] // 10) % 100000,
-        gaia['id_tycho'] % 10,
-    ).astype('uint32')
-    gaia['bp_rp'] = gaia['phot_bp_mean_mag'] - gaia['phot_rp_mean_mag']
-    print('  Merging distance information')
-    gaia['r_est'] = MaskedColumn(apply_distances(GAIA_EDR3_DIR, gaia['source_id']), unit='pc')
-    gaia['r_est'].mask = np.isnan(gaia['r_est'])
-
-    gaia.remove_columns([
-        'id_tycho', 'cmp', 'tyc_ra', 'tyc_dec', 'bt_mag', 'vt_mag', 'ep_ra1990', 'ep_de1990',
-        'dr2_radial_velocity', 'ref_epoch', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error',
-        'phot_bp_mean_mag', 'phot_rp_mean_mag', 'astrometric_params_solved',
-    ])
-
-    return gaia
 
 
 def load_tyc_spec() -> Table:
@@ -149,7 +116,7 @@ def load_tyc_spec() -> Table:
         data = tf.read_gzip('catalog.dat', ['TYC1', 'TYC2', 'TYC3', 'SpType'])
 
     parse_tyc_cols(data)
-    data.add_index('TYC')
+    data.add_index('HIP')
     return data
 
 
@@ -193,9 +160,9 @@ def load_ascc() -> Table:
             else:
                 data = vstack([data, section_data], join_type='exact')
 
-    data = unique(data.group_by(['TYC', 'd3']), keys=['TYC'])
+    data = unique(data.group_by(['HIP', 'd3']), keys=['HIP'])
     data.rename_column('d3', 'Comp')
-    data.add_index('TYC')
+    data.add_index('HIP')
     return data
 
 
@@ -211,13 +178,13 @@ def load_tyc_hd() -> Table:
     data = data[np.logical_not(np.isin(data['HD'], err_del))]
 
     err_add = Table(np.array(TYC_HD_ERRATA['add']),
-                    names=['TYC', 'HD'],
+                    names=['HIP', 'HD'],
                     dtype=[np.int64, np.int64])
 
     data = vstack([data, err_add], join_type='exact')
 
-    data = unique(data.group_by('HD'), keys='TYC')
-    data = unique(data.group_by('TYC'), keys='HD')
+    data = unique(data.group_by('HD'), keys='HIP')
+    data = unique(data.group_by('HIP'), keys='HD')
 
     return data
 
@@ -267,8 +234,8 @@ def load_tyc_teff() -> Table:
             data = reader.read(f)
 
         data['teff_val'].unit = u.K
-        data.add_index('TYC')
-        return unique(data, keys=['TYC'])
+        data.rename_column('TYC', 'HIP')
+        return unique(data, keys=['HIP'])
 
 
 def load_sao() -> Table:
@@ -296,43 +263,64 @@ def load_sao() -> Table:
 
     parse_tyc_cols(data)
 
-    data = unique(data.group_by(['TYC', 'angDist']), keys=['TYC'])
+    data = unique(data.group_by(['HIP', 'angDist']), keys=['HIP'])
     data.remove_column('angDist')
 
-    data.add_index('TYC')
     return data
 
 
-def merge_tables() -> Table:
-    """Merges the tables."""
-    data = join(load_gaia_tyc(), load_tyc_spec(), keys=['TYC'], join_type='left')
+def process_tyc(data: Table) -> Table:
+    """Processes the TYC data."""
+    data = join(
+        data, load_tyc_spec(),
+        keys=['HIP'],
+        join_type='left',
+        table_names=('gaia', 'tspec'),
+        metadata_conflicts='silent',
+    )
     data = join(
         data, load_ascc(),
-        keys=['TYC'],
+        keys=['HIP'],
         join_type='left',
         table_names=('gaia', 'ascc'),
         metadata_conflicts='silent',
     )
-    data['SpType'] = MaskedColumn(data['SpType_gaia'].filled(data['SpType_ascc'].filled('')))
-    data['SpType'].mask = data['SpType'] == ''
-    data.remove_columns(['SpType_gaia', 'SpType_ascc'])
 
-    data = join(data, load_tyc_hd(), keys=['TYC'], join_type='left', metadata_conflicts='silent')
+    data['SpType'] = MaskedColumn(
+        data['SpType_gaia'].filled(data['SpType_tspec'].filled(data['SpType'].filled('')))
+    )
+    data['SpType'].mask = data['SpType'] == ''
+    data.remove_columns(['SpType_gaia', 'SpType_tspec'])
+
+    for base_col in (c[:-5] for c in data.colnames if c.endswith('_gaia')):
+        gaia_col = base_col+'_gaia'
+        ascc_col = base_col+'_ascc'
+        data.rename_column(gaia_col, base_col)
+        mask = np.logical_and(data[base_col].mask, data[ascc_col].mask)
+        data[base_col] = MaskedColumn(data[base_col].filled(data[ascc_col]), mask=mask)
+        data.remove_column(ascc_col)
 
     data = join(
-        data,
-        load_tyc_teff(),
-        keys=['TYC'],
+        data, load_tyc_hd(),
+        keys=['HIP'],
         join_type='left',
-        table_names=('gaia', 'tycteff'),
+        table_names=['gaia', 'hd'],
+        metadata_conflicts='silent'
     )
+    data['HD'] = MaskedColumn(data['HD_hd'].filled(data['HD_gaia'].filled(0)))
+    data['HD'].mask = data['HD'] == 0
+    data.remove_columns(['HD_gaia', 'HD_hd'])
 
-    data = join(data, load_sao(), keys=['TYC'], join_type='left')
-    return data
+    data = join(data, load_tyc_teff(), keys=['HIP'], join_type='left')
 
+    data = join(
+        data, load_sao(),
+        keys=['HIP'],
+        table_names=['gaia', 'sao'],
+        join_type='left'
+    )
+    data['SAO'] = MaskedColumn(data['SAO_sao'].filled(data['SAO_gaia'].filled(0)))
+    data['SAO'].mask = data['SAO'] == 0
+    data.remove_columns(['SAO_gaia', 'SAO_sao'])
 
-def process_tyc() -> Table:
-    """Processes the TYC data."""
-    data = merge_tables()
-    data.rename_column('r_est', 'dist_use')
     return data

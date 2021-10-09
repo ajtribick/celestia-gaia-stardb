@@ -26,13 +26,14 @@ import astropy.units as u
 import numpy as np
 from astropy.table import MaskedColumn, Table, join, unique, vstack
 
-from .directories import AUXFILES_DIR, OUTPUT_DIR, VIZIER_DIR
+from .celestia_gaia import apply_distances
+from .directories import GAIA_EDR3_DIR, OUTPUT_DIR, VIZIER_DIR
 from .parse_hip import process_hip
-from .parse_tyc import process_tyc
+from .parse_tyc import make_tyc, process_tyc
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
 from .utils import WorkaroundCDSReader, open_cds_tarfile
 
-VERSION = "1.1.0-alpha.2"
+VERSION = "1.1.0-beta.1"
 
 # remove the following objects from the output
 
@@ -226,55 +227,39 @@ def load_sao() -> Table:
 
 def merge_all() -> Table:
     """Merges the HIP and TYC data."""
-    hip_data = process_hip()
+    print("Loading Gaia crossmatch data")
+    data = Table.read(GAIA_EDR3_DIR/'xmatch-gaia-hiptyc.vot.gz', format='votable')
+    data.rename_column('id', 'HIP')
+    data['HIP'] = np.where(
+        data['HIP'] < 1000000,
+        data['HIP'],
+        make_tyc(data['HIP']//1000000, (data['HIP']//10) % 100000, data['HIP']%10)
+    ).astype('uint32')
 
-    # extract the non-Gaia sources to make the merging easier
-    non_gaia = hip_data[hip_data['source_id'].mask]
+    data['bp_rp'] = data['phot_bp_mean_mag'] - data['phot_rp_mean_mag']
 
-    # merge object data for objects in both catalogues
-    hip_data = join(
-        hip_data[np.logical_not(hip_data['source_id'].mask)],
-        process_tyc(),
-        keys=['source_id'],
-        table_names=['hip', 'tyc'],
-        join_type='outer',
-    )
+    data['r_est'] = MaskedColumn(apply_distances(GAIA_EDR3_DIR, data['source_id']), unit='pc')
+    data['r_est'].mask = np.isnan(data['r_est'])
 
-    # Mask blank spectral type and component identifiers
-    for str_col in (c for c in hip_data.colnames if hip_data[c].dtype.kind == 'U'):
-        hip_data[str_col].mask = np.logical_or(hip_data[str_col].mask, hip_data[str_col] == '')
+    data.remove_columns([
+        'src_ra', 'src_dec', 'hp_mag', 'bt_mag', 'vt_mag', 'ep_ra1990', 'ep_de1990',
+        'dr2_radial_velocity', 'ref_epoch', 'pmra', 'pmra_error', 'pmdec', 'pmdec_error',
+        'phot_bp_mean_mag', 'phot_rp_mean_mag', 'astrometric_params_solved'
+    ])
 
-    prefer_tyc = {'HD', 'SAO', 'Comp'}
-
-    for base_col in (c[:-4] for c in hip_data.colnames if c.endswith('_hip')):
-        hip_col = base_col + '_hip'
-        tyc_col = base_col + '_tyc'
-        hip_data.rename_column(hip_col, base_col)
-        if isinstance(hip_data[base_col], MaskedColumn):
-            mask = np.logical_and(hip_data[base_col].mask, hip_data[tyc_col].mask)
-            if base_col in prefer_tyc:
-                base_data = hip_data[tyc_col].filled(hip_data[base_col])
-            else:
-                base_data = hip_data[base_col].filled(hip_data[tyc_col])
-            hip_data[base_col] = MaskedColumn(base_data, mask=mask)
-        hip_data.remove_column(tyc_col)
-
-    hip_data['HIP'] = hip_data['HIP'].filled(hip_data['TYC'])
-    hip_data.remove_columns('TYC')
-
-    # Add the non-Gaia stars back into the dataset
-    hip_data = vstack([hip_data, non_gaia], join_type='outer', metadata_conflicts='silent')
+    data = process_hip(data)
+    data = process_tyc(data)
 
     # Merge SAO, preferring the values from the SAO catalogue
     sao = load_sao()
-    sao = sao[np.isin(sao['HD'], hip_data[np.logical_not(hip_data['HD'].mask)]['HD'])]
-    hip_data['SAO'].mask = np.logical_or(
-        hip_data['SAO'].mask,
-        np.isin(hip_data['SAO'], sao['SAO']),
+    sao = sao[np.isin(sao['HD'], data[np.logical_not(data['HD'].mask)]['HD'])]
+    data['SAO'].mask = np.logical_or(
+        data['SAO'].mask,
+        np.isin(data['SAO'], sao['SAO']),
     )
 
     hd_sao = join(
-        hip_data[np.logical_not(hip_data['HD'].mask)],
+        data[np.logical_not(data['HD'].mask)],
         sao,
         keys=['HD'],
         table_names=['xref', 'sao'],
@@ -287,7 +272,7 @@ def merge_all() -> Table:
     )
     hd_sao.remove_column('SAO_sao')
 
-    return vstack([hip_data[hip_data['HD'].mask], hd_sao], join_type='exact')
+    return vstack([data[data['HD'].mask], hd_sao], join_type='exact')
 
 
 OBLIQUITY = np.radians(23.4392911)
@@ -303,7 +288,7 @@ ROT_MATRIX = np.array([
 def process_data() -> Table:
     """Processes the missing data values."""
     data = merge_all()
-    data = data[np.logical_not(data['dist_use'].mask)]
+    data = data[data['dist_use'] > 0]
     data = data[np.isin(data['HIP'], EXCLUSIONS, invert=True)]
     estimate_magnitudes(data)
     data = parse_spectra(data)
@@ -314,6 +299,7 @@ def process_data() -> Table:
     unknown_spectra = estimate_spectra(unknown_spectra)
     data = join(
         data,
+
         unknown_spectra['HIP', 'CelSpec'],
         keys=['HIP'],
         join_type='left',
@@ -409,11 +395,11 @@ def make_stardb() -> None:
         for f in contents:
             zf.write(OUTPUT_DIR/f, arcname=Path(archivename)/f)
 
-    archivename = f'celestia-gaia-auxiliary-{VERSION}'
-    with ZipFile(f'{archivename}.zip', 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf:
-        contents = [
-            'hip2dist.csv', 'hip-gaia-xmatch.csv', 'tyc-gaia-xmatch.csv',
-            'LICENSE.txt', 'CREDITS.md',
-        ]
-        for f in contents:
-            zf.write(AUXFILES_DIR/f, arcname=Path(archivename)/f)
+    # archivename = f'celestia-gaia-auxiliary-{VERSION}'
+    # with ZipFile(f'{archivename}.zip', 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf:
+    #     contents = [
+    #         'hip2dist.csv', 'hip-gaia-xmatch.csv', 'tyc-gaia-xmatch.csv',
+    #         'LICENSE.txt', 'CREDITS.md',
+    #     ]
+    #     for f in contents:
+    #         zf.write(AUXFILES_DIR/f, arcname=Path(archivename)/f)

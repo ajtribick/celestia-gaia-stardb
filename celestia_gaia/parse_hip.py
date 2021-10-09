@@ -23,34 +23,12 @@ import astropy.io.ascii as io_ascii
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import ICRS, SkyCoord
-from astropy.table import MaskedColumn, Table, join, unique
+from astropy.table import Table, join, unique
 from astropy.time import Time
 from erfa import ErfaWarning
 
-from .celestia_gaia import apply_distances
-from .directories import AUXFILES_DIR, GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
+from .directories import AUXFILES_DIR, VIZIER_DIR, XMATCH_DIR
 from .utils import open_cds_tarfile
-
-
-def load_gaia_hip() -> Table:
-    """Load the Gaia DR2 HIP sources."""
-    print('Loading Gaia DR2 sources for HIP')
-
-    gaia = Table.read(GAIA_EDR3_DIR/'xmatch-gaia-hip.vot.gz', format='votable')
-    gaia['bp_rp'] = gaia['phot_bp_mean_mag'] - gaia['phot_rp_mean_mag']
-
-    print('  Merging distance information')
-    gaia['hip'] = gaia['hip'].astype('uint32')
-    gaia['r_est'] = MaskedColumn(apply_distances(GAIA_EDR3_DIR, gaia['source_id']), unit='pc')
-    gaia['r_est'].mask = np.isnan(gaia['r_est'])
-
-    gaia.rename_column('hip', 'HIP')
-    gaia.remove_columns([
-        'hip_ra', 'hip_dec', 'hp_mag', 'dr2_radial_velocity', 'ref_epoch', 'pmra', 'pmra_error',
-        'pmdec', 'pmdec_error', 'phot_bp_mean_mag', 'phot_rp_mean_mag',
-        'astrometric_params_solved',
-    ])
-    return gaia
 
 
 def load_xhip() -> Table:
@@ -61,7 +39,7 @@ def load_xhip() -> Table:
         hip_data = tf.read_gzip(
             'main.dat',
             [
-                'HIP', 'Comp', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE', 'e_Plx',
+                'HIP', 'RAdeg', 'DEdeg', 'Plx', 'pmRA', 'pmDE', 'e_Plx',
                 'Dist', 'e_Dist', 'SpType', 'RV',
             ],
             fill_values=[('', '-1', 'Tc', 'Lc'), ('', 'NaN', 'phi')],
@@ -178,10 +156,10 @@ def process_xhip() -> Table:
     return xhip
 
 
-def process_hip() -> Table:
+def process_hip(data: Table) -> Table:
     """Process the Gaia and HIP data."""
     data = join(
-        load_gaia_hip(),
+        data,
         process_xhip(),
         keys=['HIP'],
         join_type='outer',
