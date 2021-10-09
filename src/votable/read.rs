@@ -310,7 +310,10 @@ impl<'a> RecordAccessor<'a> {
         Ok((&self.data[offset..offset + mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
     }
 
-    pub fn read_char<const CAP: usize>(&self, ordinal: usize) -> Result<ArrayVec<u8, CAP>, AppError> {
+    pub fn read_char<const CAP: usize>(
+        &self,
+        ordinal: usize,
+    ) -> Result<ArrayVec<u8, CAP>, AppError> {
         let field_type = self.field_types[ordinal];
         if field_type != DataType::Char {
             return Err(AppError::field_type(ordinal, DataType::Char, field_type));

@@ -25,14 +25,10 @@ use std::{
 use lazy_static::lazy_static;
 
 use crate::{
-    astro::{GaiaId, ProperMotion, SkyCoords, Squarable, MAS_TO_DEG, TycId, HipId},
+    astro::{GaiaId, HipId, ProperMotion, SkyCoords, Squarable, TycId, MAS_TO_DEG},
     error::AppError,
-    votable::{RecordAccessor, VotableReader, VotableWriter, FieldInfo},
+    votable::{FieldInfo, RecordAccessor, VotableReader, VotableWriter},
 };
-
-pub trait Crossmatchable<C> {
-    fn score(&self, gaia_star: &C) -> f64;
-}
 
 #[derive(Debug)]
 struct GaiaOrdinals {
@@ -76,7 +72,7 @@ impl GaiaOrdinals {
 }
 
 #[derive(Debug)]
-pub struct HipOrdinals {
+struct HipOrdinals {
     pub hip: usize,
     pub hip_ra: usize,
     pub hip_dec: usize,
@@ -95,7 +91,7 @@ impl HipOrdinals {
 }
 
 #[derive(Debug)]
-pub struct TycOrdinals {
+struct TycOrdinals {
     pub id_tycho: usize,
     pub ra_deg: usize,
     pub de_deg: usize,
@@ -254,7 +250,6 @@ lazy_static! {
             |g| Some(g.astrometric_params_solved)
         ),
     ];
-
     static ref CROSSMATCH_FIELDS: [FieldInfo<CrossmatchStar>; 8] = [
         FieldInfo::long("id", None, None, "Celestia identifier", |s| Some(s.id)),
         FieldInfo::double(
@@ -271,9 +266,27 @@ lazy_static! {
             "Declination in ICRS, Ep=1991.25",
             |s| s.coords.dec
         ),
-        FieldInfo::double("hp_mag", Some("Magnitude[Mag]"), None, "Hipparcos magnitude", |s| s.hp_mag),
-        FieldInfo::float("bt_mag", Some("Magnitude[Mag]"), Some("em.opt.B;phot.mag"), "Tycho-2 BT magnitude", |s| s.bt_mag),
-        FieldInfo::float("vt_mag", Some("Magnitude[Mag]"), Some("em.opt.V;phot.mag"), "Tycho-2 VT magnitude", |s| s.bt_mag),
+        FieldInfo::double(
+            "hp_mag",
+            Some("Magnitude[Mag]"),
+            None,
+            "Hipparcos magnitude",
+            |s| s.hp_mag
+        ),
+        FieldInfo::float(
+            "bt_mag",
+            Some("Magnitude[Mag]"),
+            Some("em.opt.B;phot.mag"),
+            "Tycho-2 BT magnitude",
+            |s| s.bt_mag
+        ),
+        FieldInfo::float(
+            "vt_mag",
+            Some("Magnitude[Mag]"),
+            Some("em.opt.V;phot.mag"),
+            "Tycho-2 VT magnitude",
+            |s| s.bt_mag
+        ),
         FieldInfo::float(
             "ep_ra1990",
             Some("Time[year]"),
@@ -356,9 +369,14 @@ fn g_bt(bp_rp: f32) -> f32 {
 }
 
 impl CrossmatchStar {
-    pub fn from_hip_accessor(accessor: &RecordAccessor, ordinals: &HipOrdinals) -> Result<Self, AppError> {
+    pub fn from_hip_accessor(
+        accessor: &RecordAccessor,
+        ordinals: &HipOrdinals,
+    ) -> Result<Self, AppError> {
         Ok(Self {
-            id: accessor.read_i32(ordinals.hip)?.ok_or(AppError::missing_id("hip"))? as i64,
+            id: accessor
+                .read_i32(ordinals.hip)?
+                .ok_or(AppError::missing_id("hip"))? as i64,
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.hip_ra)?,
                 dec: accessor.read_f64(ordinals.hip_dec)?,
@@ -371,9 +389,14 @@ impl CrossmatchStar {
         })
     }
 
-    pub fn from_tyc_accessor(accessor: &RecordAccessor, ordinals: &TycOrdinals) -> Result<Self, AppError> {
+    pub fn from_tyc_accessor(
+        accessor: &RecordAccessor,
+        ordinals: &TycOrdinals,
+    ) -> Result<Self, AppError> {
         Ok(Self {
-            id: accessor.read_i64(ordinals.id_tycho)?.ok_or(AppError::missing_id("id_tycho"))?,
+            id: accessor
+                .read_i64(ordinals.id_tycho)?
+                .ok_or(AppError::missing_id("id_tycho"))?,
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.ra_deg)?,
                 dec: accessor.read_f64(ordinals.de_deg)?,
@@ -386,23 +409,35 @@ impl CrossmatchStar {
         })
     }
 
-    fn merge(&mut self, other: &CrossmatchStar) {
+    pub fn merge(&mut self, other: &CrossmatchStar) {
         if self.id <= other.id {
-            if f64::is_nan(self.hp_mag) { self.hp_mag = other.hp_mag; }
-            if !f32::is_nan(other.bt_mag) { self.bt_mag = other.bt_mag; }
-            if !f32::is_nan(other.vt_mag) { self.vt_mag = other.vt_mag; }
+            if f64::is_nan(self.hp_mag) {
+                self.hp_mag = other.hp_mag;
+            }
+            if !f32::is_nan(other.bt_mag) {
+                self.bt_mag = other.bt_mag;
+            }
+            if !f32::is_nan(other.vt_mag) {
+                self.vt_mag = other.vt_mag;
+            }
         } else {
             self.id = other.id;
             self.coords = other.coords;
-            if !f64::is_nan(other.hp_mag) { self.hp_mag = other.hp_mag; }
-            if f32::is_nan(self.bt_mag) { self.bt_mag = other.bt_mag; }
-            if f32::is_nan(self.vt_mag) { self.vt_mag = other.vt_mag; }
+            if !f64::is_nan(other.hp_mag) {
+                self.hp_mag = other.hp_mag;
+            }
+            if f32::is_nan(self.bt_mag) {
+                self.bt_mag = other.bt_mag;
+            }
+            if f32::is_nan(self.vt_mag) {
+                self.vt_mag = other.vt_mag;
+            }
             self.epoch_ra = other.epoch_ra;
             self.epoch_dec = other.epoch_dec;
         }
     }
 
-    fn score(&self, gaia_star: &GaiaStar) -> f64 {
+    pub fn score(&self, gaia_star: &GaiaStar) -> f64 {
         let mean_epoch = (self.epoch_ra * 0.5 + self.epoch_dec * 0.5) as f64 + 1990.0;
         let epoch_diff = gaia_star.epoch - mean_epoch;
         let rv = if gaia_star.rv.is_nan() {
@@ -486,16 +521,14 @@ impl CrossmatchStar {
     }
 }
 
-pub struct Crossmatcher
-{
+pub struct Crossmatcher {
     tyc2hip: HashMap<TycId, HipId>,
     crossmatch_stars: HashMap<i64, CrossmatchStar>,
     gaia_stars: HashMap<GaiaId, GaiaStar>,
     matches: Vec<(i64, GaiaId, f64)>,
 }
 
-impl Crossmatcher
-{
+impl Crossmatcher {
     pub fn new(tyc2hip: HashMap<TycId, HipId>) -> Self {
         Self {
             tyc2hip,
@@ -516,7 +549,10 @@ impl Crossmatcher
             let gaia_id = gaia_star.source_id;
             let score = hip_star.score(&gaia_star);
 
-            self.crossmatch_stars.entry(hip_id).and_modify(|e| e.merge(&hip_star)).or_insert(hip_star);
+            self.crossmatch_stars
+                .entry(hip_id)
+                .and_modify(|e| e.merge(&hip_star))
+                .or_insert(hip_star);
             self.gaia_stars.insert(gaia_id, gaia_star);
             self.matches.push((hip_id, gaia_id, score));
         }
@@ -530,12 +566,18 @@ impl Crossmatcher
 
         while let Some(accessor) = reader.read()? {
             let tyc_star = CrossmatchStar::from_tyc_accessor(&accessor, &tyc_ordinals)?;
-            let tyc_id = self.tyc2hip.get(&TycId(tyc_star.id)).map_or(tyc_star.id, |h| h.0 as i64);
+            let tyc_id = self
+                .tyc2hip
+                .get(&TycId(tyc_star.id))
+                .map_or(tyc_star.id, |h| h.0 as i64);
             let gaia_star = GaiaStar::from_accessor(&accessor, &gaia_ordinals)?;
             let gaia_id = gaia_star.source_id;
             let score = tyc_star.score(&gaia_star);
 
-            self.crossmatch_stars.entry(tyc_id).and_modify(|e| e.merge(&tyc_star)).or_insert(tyc_star);
+            self.crossmatch_stars
+                .entry(tyc_id)
+                .and_modify(|e| e.merge(&tyc_star))
+                .or_insert(tyc_star);
             self.gaia_stars.insert(gaia_id, gaia_star);
             self.matches.push((tyc_id, gaia_id, score));
         }
@@ -544,7 +586,10 @@ impl Crossmatcher
     }
 
     pub fn finalize(mut self, writer: impl Write) -> Result<(), AppError> {
-        println!("Found {} distinct source stars", self.crossmatch_stars.len());
+        println!(
+            "Found {} distinct source stars",
+            self.crossmatch_stars.len()
+        );
         self.matches
             .sort_unstable_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
 

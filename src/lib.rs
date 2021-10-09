@@ -19,7 +19,7 @@
 
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet, hash_map::Entry},
+    collections::{hash_map::Entry, HashMap, HashSet},
     fs::{read_dir, File},
     iter::FromIterator,
     path::{Path, PathBuf},
@@ -63,12 +63,22 @@ fn load_tyc2hip(path: &Path) -> Result<HashMap<TycId, HipId>, AppError> {
 
     let mut hip2tyc = HashMap::new();
     while let Some(accessor) = reader.read()? {
-        let id_tycho = TycId(accessor.read_i64(id_tycho_col)?.ok_or(AppError::missing_id("id_tycho"))?);
-        let hip = HipId(accessor.read_i32(hip_col)?.ok_or(AppError::missing_id("hip"))?);
+        let id_tycho = TycId(
+            accessor
+                .read_i64(id_tycho_col)?
+                .ok_or(AppError::missing_id("id_tycho"))?,
+        );
+        let hip = HipId(
+            accessor
+                .read_i32(hip_col)?
+                .ok_or(AppError::missing_id("hip"))?,
+        );
         let cmp = accessor.read_char::<2>(comp_col)?;
 
         match hip2tyc.entry(hip) {
-            Entry::Vacant(v) => { v.insert((id_tycho, cmp)); },
+            Entry::Vacant(v) => {
+                v.insert((id_tycho, cmp));
+            }
             Entry::Occupied(mut o) => {
                 if &cmp < &o.get().1 {
                     o.insert((id_tycho, cmp));
@@ -88,7 +98,9 @@ fn full_crossmatch(path: &Path, output_name: &str) -> Result<(), AppError> {
     let tyc_pattern = Glob::new(TYC_PATTERN)?.compile_matcher();
     for entry in read_dir(path)? {
         let entry = entry?;
-        if !entry.metadata()?.is_file() { continue; }
+        if !entry.metadata()?.is_file() {
+            continue;
+        }
         let entry_path = entry.path();
         if hip_pattern.is_match(&entry_path) {
             let file = File::open(entry_path)?;
@@ -201,17 +213,16 @@ fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, AppE
 fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m)]
     #[pyo3(name = "build_xmatch", text_signature = "()")]
-    fn build_xmatch_py<'py>(
-        _py: Python<'py>,
-        gaia_dir: &PyAny,
-        output_name: &str,
-    ) -> PyResult<()> {
+    fn build_xmatch_py<'py>(_py: Python<'py>, gaia_dir: &PyAny, output_name: &str) -> PyResult<()> {
         full_crossmatch(gaia_dir.str()?.to_str()?.as_ref(), output_name)?;
         Ok(())
     }
 
     #[pyfn(m)]
-    #[pyo3(name = "get_required_dist_source_ids", text_signature = "(gaia_dir, /)")]
+    #[pyo3(
+        name = "get_required_dist_source_ids",
+        text_signature = "(gaia_dir, /)"
+    )]
     fn get_required_dist_source_ids_py<'py>(
         py: Python<'py>,
         gaia_dir: &PyAny,
@@ -234,7 +245,10 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     }
 
     #[pyfn(m)]
-    #[pyo3(name = "estimate_distances", text_signature = "(prior_file, hip2_file, output_file, /)")]
+    #[pyo3(
+        name = "estimate_distances",
+        text_signature = "(prior_file, hip2_file, output_file, /)"
+    )]
     fn estimate_distances_py<'py>(
         _py: Python<'py>,
         prior_file: &'py PyAny,
