@@ -145,6 +145,19 @@ def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 200) -> None:
         _run_query(query, tyc_file)
 
 
+def download_tyc2tdsc_xmatch():
+    """Download the TYC2-HIP corss-index from the Gaia archive."""
+    tyc2tdsc_xmatch_file = GAIA_EDR3_DIR/'tyc2tdsc_hip_xmatch.vot.gz'
+    if (
+        tyc2tdsc_xmatch_file.exists()
+        and not confirm_action('TYC2TDSC-based TYC-HIP crossmatch exists, replace?')
+    ):
+        return
+
+    query = 'SELECT id_tycho, hip, cmp FROM tycho2tdsc_merge WHERE hip IS NOT NULL'
+    print('Querying for HIP-TYC crossmatches from tycho2tdsc_merge')
+    _run_query(query, tyc2tdsc_xmatch_file)
+
 _RANGE_PATTERN = re.compile(r'-([0-9]+)-([0-9]+)\.')
 
 
@@ -161,6 +174,8 @@ def _getranges(start: int, end: int, path: Path, pattern: str) -> MultiRange:
 def download_gaia() -> None:
     """Download data from the Gaia archive."""
     GAIA_EDR3_DIR.mkdir(parents=True, exist_ok=True)
+
+    download_tyc2tdsc_xmatch()
 
     hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, 'gaiaedr3-hip2-*.vot.gz')
     if not hip_ranges:
@@ -229,6 +244,7 @@ FROM
         position = next_position
         part += 1
         p += 1
+
 
 def create_aux_xmatch_files() -> None:
     """Creates the auxiliary cross-match CSV files"""
