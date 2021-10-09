@@ -171,8 +171,8 @@ fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, AppE
 
 #[pymodule]
 fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
-    #[pyfn(m, "build_hip_xmatch")]
-    #[text_signature = "(gaia_dir, output_name, /)"]
+    #[pyfn(m)]
+    #[pyo3(name = "build_hip_xmatch", text_signature = "(gaia_dir, output_name, /)")]
     fn build_hip_xmatch_py<'py>(
         _py: Python<'py>,
         gaia_dir: &PyAny,
@@ -186,8 +186,8 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
         Ok(())
     }
 
-    #[pyfn(m, "build_tyc_xmatch")]
-    #[text_signature = "(gaia_dir, output_name, /)"]
+    #[pyfn(m)]
+    #[pyo3(name = "build_tyc_xmatch", text_signature = "(gaia_dir, output_name, /)")]
     fn build_tyc_xmatch_py<'py>(
         _py: Python<'py>,
         gaia_dir: &PyAny,
@@ -201,8 +201,8 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
         .map_err(Into::into)
     }
 
-    #[pyfn(m, "get_required_dist_source_ids")]
-    #[text_signature = "(gaia_dir, /)"]
+    #[pyfn(m)]
+    #[pyo3(name = "get_required_dist_source_ids", text_signature = "(gaia_dir, /)")]
     fn get_required_dist_source_ids_py<'py>(
         py: Python<'py>,
         gaia_dir: &PyAny,
@@ -210,8 +210,8 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
         Ok(get_required_dist_source_ids(gaia_dir.str()?.to_str()?.as_ref())?.into_pyarray(py))
     }
 
-    #[pyfn(m, "apply_distances")]
-    #[text_signature = "(gaia_dir, source_ids, /)"]
+    #[pyfn(m)]
+    #[pyo3(name = "apply_distances", text_signature = "(gaia_dir, source_ids, /)")]
     fn apply_distances_py<'py>(
         py: Python<'py>,
         gaia_dir: &'py PyAny,
@@ -224,8 +224,8 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
         Ok(distances.into_pyarray(py))
     }
 
-    #[pyfn(m, "estimate_distances")]
-    #[text_signature = "(prior_file, hip2_file, output_file, /)"]
+    #[pyfn(m)]
+    #[pyo3(name = "estimate_distances", text_signature = "(prior_file, hip2_file, output_file, /)")]
     fn estimate_distances_py<'py>(
         _py: Python<'py>,
         prior_file: &'py PyAny,
@@ -240,8 +240,8 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
         .map_err(Into::into)
     }
 
-    #[pyfn(m, "create_hip_aux_xmatch")]
-    #[text_signature = "(crossmatch_file, output_file, /)"]
+    #[pyfn(m)]
+    #[pyo3(name = "create_hip_aux_xmatch", text_signature = "(crossmatch_file, output_file, /)")]
     fn create_hip_aux_xmatch_py<'py>(
         _py: Python<'py>,
         crossmatch_file: &'py PyAny,
@@ -256,8 +256,8 @@ fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
         Ok(())
     }
 
-    #[pyfn(m, "create_tyc_aux_xmatch")]
-    #[text_signature = "(crossmatch_file, output_file, /)"]
+    #[pyfn(m)]
+    #[pyo3(name = "create_tyc_aux_xmatch", text_signature = "(crossmatch_file, output_file, /)")]
     fn create_tyc_aux_xmatch_py<'py>(
         _py: Python<'py>,
         crossmatch_file: &'py PyAny,
