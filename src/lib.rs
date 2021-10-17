@@ -87,7 +87,7 @@ fn load_tyc2hip(path: &Path) -> Result<HashMap<TycId, HipId>, AppError> {
         }
     }
 
-    Ok(hip2tyc.iter().map(|(h, (t, _))| (*t, *h)).collect())
+    Ok(hip2tyc.into_iter().map(|(h, (t, _))| (t, h)).collect())
 }
 
 fn full_crossmatch(path: &Path, output_name: &str) -> Result<(), AppError> {
