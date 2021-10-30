@@ -83,6 +83,6 @@ impl<B: BufRead> CsvReader<B> {
     }
 
     pub fn field(&self, index: usize) -> &str {
-        &self.line[self.offsets[index].clone()].trim()
+        self.line[self.offsets[index].clone()].trim()
     }
 }

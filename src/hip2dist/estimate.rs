@@ -72,15 +72,15 @@ impl<B: BufRead + Send> Parser<B> {
     pub fn new(reader: CsvReader<B>, sender: Sender<HipInfo>) -> io::Result<Self> {
         let hip_col = reader
             .index("HIP")
-            .ok_or(io::Error::new(ErrorKind::InvalidData, "Missing HIP field"))?;
+            .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing HIP field"))?;
         let plx_col = reader
             .index("Plx")
-            .ok_or(io::Error::new(ErrorKind::InvalidData, "Missing Plx field"))?;
-        let e_plx_col = reader.index("e_Plx").ok_or(io::Error::new(
+            .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing Plx field"))?;
+        let e_plx_col = reader.index("e_Plx").ok_or_else(|| io::Error::new(
             ErrorKind::InvalidData,
             "Missing e_Plx field",
         ))?;
-        let healpix_col = reader.index("healpix").ok_or(io::Error::new(
+        let healpix_col = reader.index("healpix").ok_or_else(|| io::Error::new(
             ErrorKind::InvalidData,
             "Missing healpix field",
         ))?;
@@ -96,7 +96,7 @@ impl<B: BufRead + Send> Parser<B> {
 
     fn process(&mut self) -> Result<usize, AppError> {
         let mut processed = 0;
-        while let Some(_) = self.reader.next()? {
+        while self.reader.next()?.is_some() {
             let hip_info = HipInfo {
                 hip: HipId(
                     self.reader
@@ -170,7 +170,7 @@ impl Calculator {
 
             // Initialize MCMC, setup given in Bailer-Jones et al. (2021)
             let mode = edsd_mode(prior.edsd_length, hip_info.plx, hip_info.e_plx);
-            let p_dist = geometric_posterior(&hip_info, &prior);
+            let p_dist = geometric_posterior(&hip_info, prior);
             let mut r = mode;
             let mut log_p = p_dist(r);
 

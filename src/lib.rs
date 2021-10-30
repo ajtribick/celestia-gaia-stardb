@@ -66,12 +66,12 @@ fn load_tyc2hip(path: &Path) -> Result<HashMap<TycId, HipId>, AppError> {
         let id_tycho = TycId(
             accessor
                 .read_i64(id_tycho_col)?
-                .ok_or(AppError::missing_id("id_tycho"))?,
+                .ok_or_else(|| AppError::missing_id("id_tycho"))?,
         );
         let hip = HipId(
             accessor
                 .read_i32(hip_col)?
-                .ok_or(AppError::missing_id("hip"))?,
+                .ok_or_else(|| AppError::missing_id("hip"))?,
         );
         let cmp = accessor.read_char::<2>(comp_col)?;
 
@@ -80,7 +80,7 @@ fn load_tyc2hip(path: &Path) -> Result<HashMap<TycId, HipId>, AppError> {
                 v.insert((id_tycho, cmp));
             }
             Entry::Occupied(mut o) => {
-                if &cmp < &o.get().1 {
+                if cmp < o.get().1 {
                     o.insert((id_tycho, cmp));
                 }
             }
@@ -175,7 +175,7 @@ fn get_required_dist_source_ids(path: &Path) -> Result<Vec<i64>, AppError> {
 fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, AppError> {
     let mut geometric = vec![f32::NAN; source_ids.len()];
     let source_indices: HashMap<_, _> = source_ids
-        .into_iter()
+        .iter()
         .enumerate()
         .map(|(i, g)| (*g, i))
         .collect();

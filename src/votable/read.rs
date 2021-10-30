@@ -118,7 +118,7 @@ impl<R: Read> VotableReader<R> {
             }
         }
 
-        if field_offsets.len() == 0 {
+        if field_offsets.is_empty() {
             return Err(AppError::parse("No fields found in file"));
         }
 

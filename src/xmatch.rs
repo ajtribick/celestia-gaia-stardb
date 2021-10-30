@@ -310,7 +310,7 @@ impl GaiaStar {
             source_id: GaiaId(
                 accessor
                     .read_i64(ordinals.source_id)?
-                    .ok_or(AppError::missing_id("source_id"))?,
+                    .ok_or_else(|| AppError::missing_id("source_id"))?,
             ),
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.ra)?,
@@ -376,7 +376,7 @@ impl CrossmatchStar {
         Ok(Self {
             id: accessor
                 .read_i32(ordinals.hip)?
-                .ok_or(AppError::missing_id("hip"))? as i64,
+                .ok_or_else(|| AppError::missing_id("hip"))? as i64,
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.hip_ra)?,
                 dec: accessor.read_f64(ordinals.hip_dec)?,
@@ -396,7 +396,7 @@ impl CrossmatchStar {
         Ok(Self {
             id: accessor
                 .read_i64(ordinals.id_tycho)?
-                .ok_or(AppError::missing_id("id_tycho"))?,
+                .ok_or_else(|| AppError::missing_id("id_tycho"))?,
             coords: SkyCoords {
                 ra: accessor.read_f64(ordinals.ra_deg)?,
                 dec: accessor.read_f64(ordinals.de_deg)?,

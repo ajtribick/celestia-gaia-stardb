@@ -27,6 +27,7 @@ use super::{HipInfo, PriorInfo};
 const FRAC_2_SQRT_3: f64 = 1.1547005383792515; // 2/sqrt(3)
 const FRAC_3_SQRT_3_2: f64 = 2.598076211353316; // 3*sqrt(3)/2
 
+#[allow(clippy::many_single_char_names)]
 pub(super) fn edsd_mode(edsd_length: f64, plx: f64, e_plx: f64) -> f64 {
     let e_plx2 = (e_plx * e_plx).recip();
     let a = -2.0 * edsd_length;
