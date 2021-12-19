@@ -37,27 +37,43 @@ _TYC_MAX = 9537
 
 # --- DOWNLOAD CROSSMATCH CANDIDATES ---
 
-def _hip_query(start: int, end: int) -> str:
+def _hip1_query(upload_name: str) -> str:
     return f"""SELECT
-	h.hip, h.plx AS hip_parallax, h.e_plx AS hip_parallax_error, h.ra AS hip_ra, h.dec AS hip_dec,
+    h.hip, h.ra AS hip_ra, h.dec AS hip_dec, h.hp_mag,
+    g.source_id, g.ra, g.dec, g.parallax, g.parallax_error, g.dr2_radial_velocity, g.ref_epoch,
+    g.pmra, g.pmra_error, g.pmdec, g.pmdec_error,
+    g.phot_g_mean_mag, g.phot_bp_mean_mag, g.phot_rp_mean_mag,
+    g.astrometric_params_solved
+FROM
+    tap_upload.{upload_name} h
+    JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
+        POINT('ICRS', h.ra, h.dec),
+        CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
+    )
+WHERE ABS(h.hp_mag-g.phot_g_mean_mag) <= 3
+    """
+
+def _hip2_query(start: int, end: int) -> str:
+    return f"""SELECT
+    h.hip, h.plx AS hip_parallax, h.e_plx AS hip_parallax_error, h.ra AS hip_ra, h.dec AS hip_dec,
     h.hp_mag,
     g.source_id, g.ra, g.dec, g.parallax, g.parallax_error, g.dr2_radial_velocity, g.ref_epoch,
     g.pmra, g.pmra_error, g.pmdec, g.pmdec_error,
     g.phot_g_mean_mag, g.phot_bp_mean_mag, g.phot_rp_mean_mag,
     g.astrometric_params_solved
 FROM
-	public.hipparcos_newreduction h
-	JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
-		POINT(
-			'ICRS',
-			h.ra+COALESCE(h.pm_ra, 0)/COS(RADIANS(h.dec))*(2016.0-1991.25)/3600000.0,
-			h.dec+COALESCE(h.pm_de, 0)*(2016.0-1991.25)/3600000.0
-		),
-		CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
-	)
+    public.hipparcos_newreduction h
+    JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
+        POINT(
+            'ICRS',
+            h.ra+COALESCE(h.pm_ra, 0)/COS(RADIANS(h.dec))*(2016.0-1991.25)/3600000.0,
+            h.dec+COALESCE(h.pm_de, 0)*(2016.0-1991.25)/3600000.0
+        ),
+        CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
+    )
 WHERE
     h.hip BETWEEN {start} and {end}
-	AND ABS(h.hp_mag-g.phot_g_mean_mag) <= 3
+    AND ABS(h.hp_mag-g.phot_g_mean_mag) <= 3
     """
 
 
@@ -65,25 +81,25 @@ def _tyc_query(start: int, end: int) -> str:
     id_start = start * 1000000
     id_end = (end+1) * 1000000 - 1
     return f"""SELECT
-	t.id_tycho, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
+    t.id_tycho, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
     t.bt_mag, t.vt_mag, t.ep_ra1990, t.ep_de1990,
     g.source_id, g.ra, g.dec, g.parallax, g.parallax_error, g.dr2_radial_velocity, g.ref_epoch,
     g.pmra, g.pmra_error, g.pmdec, g.pmdec_error,
     g.phot_g_mean_mag, g.phot_bp_mean_mag, g.phot_rp_mean_mag,
     g.astrometric_params_solved
 FROM
-	gaiaedr3.tycho2tdsc_merge t
-	JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
-		POINT(
-			'ICRS',
-			t.ra_deg+COALESCE(t.pm_ra, 0)/COS(RADIANS(t.de_deg))*(2016.0-t.ep_ra1990-1990.0)/3600000.0,
-			t.de_deg+COALESCE(t.pm_de, 0)*(2016.0-t.ep_de1990-1990.0)/3600000.0
-		),
-		CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
-	)
+    gaiaedr3.tycho2tdsc_merge t
+    JOIN gaiaedr3.gaia_source g ON 1=CONTAINS(
+        POINT(
+            'ICRS',
+            t.ra_deg+COALESCE(t.pm_ra, 0)/COS(RADIANS(t.de_deg))*(2016.0-t.ep_ra1990-1990.0)/3600000.0,
+            t.de_deg+COALESCE(t.pm_de, 0)*(2016.0-t.ep_de1990-1990.0)/3600000.0
+        ),
+        CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
+    )
 WHERE
     t.id_tycho BETWEEN {id_start} AND {id_end}
-	AND ABS(COALESCE(t.vt_mag, t.bt_mag)-g.phot_g_mean_mag) <= 3
+    AND ABS(COALESCE(t.vt_mag, t.bt_mag)-g.phot_g_mean_mag) <= 3
     """
 
 
@@ -120,17 +136,17 @@ def _run_query(
     Gaia.remove_jobs([job.jobid])
 
 
-def download_gaia_hip(ranges: MultiRange, chunk_size: int = 50000) -> None:
-    """Download HIP data from the Gaia archive."""
+def download_gaia_hip2(ranges: MultiRange, chunk_size: int = 50000) -> None:
+    """Download HIP2 data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
         hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{section.begin:06}-{section.end:06}.vot.gz'
 
-        query = _hip_query(section.begin, section.end)
+        query = _hip2_query(section.begin, section.end)
         print(f'Querying HIP stars in range {section.begin} to {section.end}')
         _run_query(query, hip_file)
 
 
-def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 200) -> None:
+def download_gaia_tyctdsc(ranges: MultiRange, chunk_size: int = 200) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
         tyc_file = (
@@ -143,7 +159,7 @@ def download_gaia_tyc(ranges: MultiRange, chunk_size: int = 200) -> None:
 
 
 def download_tyc2tdsc_xmatch():
-    """Download the TYC2-HIP corss-index from the Gaia archive."""
+    """Download the TYC2-HIP cross-index from the Gaia archive."""
     tyc2tdsc_xmatch_file = GAIA_EDR3_DIR/'tyc2tdsc_hip_xmatch.vot.gz'
     if (
         tyc2tdsc_xmatch_file.exists()
@@ -156,6 +172,24 @@ def download_tyc2tdsc_xmatch():
     _run_query(query, tyc2tdsc_xmatch_file)
 
 _RANGE_PATTERN = re.compile(r'-([0-9]+)-([0-9]+)\.')
+
+
+def download_hip1_subset() -> None:
+    """Downloads details of HIP1 stars not in HIP2."""
+    query = """SELECT
+    h.hip, h.hd, h.rahms, h.dedms, h.hpmag, h.b_v, h.e_b_v, h.v_i, h.e_v_i, h.sptype
+FROM
+    public.hipparcos h
+    LEFT JOIN public.hipparcos_newreduction h2 ON h2.hip = h.hip
+WHERE
+    h2.hip IS NULL
+    """
+    hip1_file = GAIA_EDR3_DIR/'hip1_subset.vot.gz'
+    if (
+        not hip1_file.exists()
+        or confirm_action('Re-download HIP1 subset?')
+    ):
+        _run_query(query, hip1_file)
 
 
 def _getranges(start: int, end: int, path: Path, pattern: str) -> MultiRange:
@@ -172,19 +206,20 @@ def download_gaia() -> None:
     """Download data from the Gaia archive."""
     GAIA_EDR3_DIR.mkdir(parents=True, exist_ok=True)
 
+    download_hip1_subset()
     download_tyc2tdsc_xmatch()
 
     hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, 'gaiaedr3-hip2-*.vot.gz')
     if not hip_ranges:
-        if confirm_action('Hipparcos cross-match data already downloaded, replace?'):
+        if confirm_action('HIP2 cross-match data already downloaded, replace?'):
             hip_ranges = MultiRange(1, _HIP_MAX)
-    download_gaia_hip(hip_ranges)
+    download_gaia_hip2(hip_ranges)
 
     tyc_ranges = _getranges(1, _TYC_MAX, GAIA_EDR3_DIR, 'gaiaedr3-tyctdsc-*.vot.gz')
     if not tyc_ranges:
-        if confirm_action('Tycho cross-match data already downloaded, replace?'):
+        if confirm_action('TYC TDSC cross-match data already downloaded, replace?'):
             tyc_ranges = MultiRange(1, _TYC_MAX)
-    download_gaia_tyc(tyc_ranges)
+    download_gaia_tyctdsc(tyc_ranges)
 
 
 def build_xmatches() -> None:

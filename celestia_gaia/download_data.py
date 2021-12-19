@@ -69,9 +69,11 @@ def download_vizier() -> None:
         # for some reason, the SAO archive at VizieR does not work, so download files individually
         ('sao.dat.gz', 'https://cdsarc.unistra.fr/ftp/I/131A/sao.dat.gz'),
         ('sao.readme', 'https://cdsarc.unistra.fr/ftp/I/131A/ReadMe'),
+        ('tyc2.readme', 'https://cdsarc.cds.unistra.fr/ftp/I/259/ReadMe'),
         ('tyc2hd.tar.gz', 'https://cdsarc.unistra.fr/viz-bin/nph-Cat/tar.gz?IV/25'),
         ('tyc2spec.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?III/231'),
         ('tyc2specnew.tar.gz', 'https://cdsarc.unistra.fr/viz-bin/nph-Cat/tar.gz?J/PAZh/34/21'),
+        ('tyc2suppl_1.dat.gz', 'https://cdsarc.cds.unistra.fr/ftp/I/259/suppl_1.dat.gz'),
         ('tyc2teff.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?V/136'),
         ('ubvriteff.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?J/ApJS/193/1'),
         ('xhip.tar.gz', 'http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/tar.gz?V/137D'),
