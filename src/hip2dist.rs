@@ -17,13 +17,13 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{
-    fs::File,
-    io::{self, BufReader, BufWriter, ErrorKind, Write},
-    path::Path,
-};
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter, ErrorKind, Write};
+use std::path::Path;
 
-use crate::{astro::HipId, csv::CsvReader, error::AppError};
+use crate::astro::HipId;
+use crate::csv::CsvReader;
+use crate::error::AppError;
 
 mod distributions;
 mod estimate;
@@ -55,26 +55,21 @@ struct DistanceInfo {
 fn load_priors(path: impl AsRef<Path>) -> io::Result<Vec<PriorInfo>> {
     let file = File::open(path)?;
     let mut reader = CsvReader::new(BufReader::new(file))?;
-    let healpix_col = reader.index("healpix").ok_or_else(|| io::Error::new(
-        ErrorKind::InvalidData,
-        "Missing healpix field",
-    ))?;
-    let ggd_l_col = reader.index("GGDrlen").ok_or_else(|| io::Error::new(
-        ErrorKind::InvalidData,
-        "Missing GGDrlen field",
-    ))?;
-    let ggd_alpha_col = reader.index("GGDalpha").ok_or_else(|| io::Error::new(
-        ErrorKind::InvalidData,
-        "Missing GGDalpha field",
-    ))?;
-    let ggd_beta_col = reader.index("GGDbeta").ok_or_else(|| io::Error::new(
-        ErrorKind::InvalidData,
-        "Missing field GGDbeta",
-    ))?;
-    let edsd_length_col = reader.index("EDSDrlen").ok_or_else(|| io::Error::new(
-        ErrorKind::InvalidData,
-        "Missing EDSDrlen field",
-    ))?;
+    let healpix_col = reader
+        .index("healpix")
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing healpix field"))?;
+    let ggd_l_col = reader
+        .index("GGDrlen")
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing GGDrlen field"))?;
+    let ggd_alpha_col = reader
+        .index("GGDalpha")
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing GGDalpha field"))?;
+    let ggd_beta_col = reader
+        .index("GGDbeta")
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing field GGDbeta"))?;
+    let edsd_length_col = reader
+        .index("EDSDrlen")
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing EDSDrlen field"))?;
 
     let mut result = Vec::with_capacity(12288);
     while reader.next()?.is_some() {

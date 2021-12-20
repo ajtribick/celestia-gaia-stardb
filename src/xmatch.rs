@@ -17,18 +17,15 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    io::{Read, Write},
-};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::io::{Read, Write};
 
 use lazy_static::lazy_static;
 
-use crate::{
-    astro::{GaiaId, HipId, ProperMotion, SkyCoords, Squarable, TycId, MAS_TO_DEG},
-    error::AppError,
-    votable::{FieldInfo, RecordAccessor, VotableReader, VotableWriter},
-};
+use crate::astro::{GaiaId, HipId, ProperMotion, SkyCoords, Squarable, TycId, MAS_TO_DEG};
+use crate::error::AppError;
+use crate::votable::{FieldInfo, RecordAccessor, VotableReader, VotableWriter};
 
 #[derive(Debug)]
 struct GaiaOrdinals {

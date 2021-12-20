@@ -17,7 +17,8 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{fmt, num::NonZeroUsize};
+use std::fmt;
+use std::num::NonZeroUsize;
 
 use super::error::AppError;
 

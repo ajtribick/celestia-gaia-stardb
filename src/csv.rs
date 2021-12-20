@@ -17,11 +17,9 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{
-    collections::HashMap,
-    io::{self, BufRead},
-    ops::Range,
-};
+use std::collections::HashMap;
+use std::io::{self, BufRead};
+use std::ops::Range;
 
 pub struct CsvReader<B: BufRead> {
     reader: B,

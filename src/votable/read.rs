@@ -17,24 +17,21 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{
-    cmp,
-    collections::HashMap,
-    convert::TryInto,
-    io::{self, BufRead, BufReader, ErrorKind, Read},
-    mem,
-};
+use std::cmp;
+use std::collections::HashMap;
+use std::io::{self, BufRead, BufReader, ErrorKind, Read};
+use std::mem;
 
 use arrayvec::ArrayVec;
 use bitvec::prelude::*;
 use byteorder::{BigEndian, ReadBytesExt};
 use flate2::read::GzDecoder;
-use quick_xml::{
-    events::{attributes::Attributes, Event},
-    Reader as XmlReader,
-};
+use quick_xml::events::attributes::Attributes;
+use quick_xml::events::Event;
+use quick_xml::Reader as XmlReader;
 
 use super::{DataType, VOTABLE_NS};
+
 use crate::error::AppError;
 
 fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), AppError> {

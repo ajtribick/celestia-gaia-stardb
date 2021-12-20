@@ -17,9 +17,14 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::{any::Any, borrow::Cow, error, fmt, io};
+use std::any::Any;
+use std::borrow::Cow;
+use std::error;
+use std::fmt;
+use std::io;
 
-use pyo3::{exceptions::PyRuntimeError, PyErr};
+use pyo3::exceptions::PyRuntimeError;
+use pyo3::PyErr;
 
 use super::votable::DataType;
 
