@@ -19,15 +19,18 @@
 
 import warnings
 
-import astropy.io.ascii as io_ascii
-import astropy.units as u
-import numpy as np
 from astropy.coordinates import ICRS, SkyCoord
+import astropy.io.ascii as io_ascii
 from astropy.table import Table, join, unique
+from astropy.table.column import MaskedColumn
 from astropy.time import Time
+import astropy.units as u
+
 from erfa import ErfaWarning
 
-from .directories import AUXFILES_DIR, VIZIER_DIR, XMATCH_DIR
+import numpy as np
+
+from .directories import AUXFILES_DIR, GAIA_EDR3_DIR, VIZIER_DIR, XMATCH_DIR
 from .utils import open_cds_tarfile
 
 
@@ -62,6 +65,20 @@ def load_xhip() -> Table:
         biblio_data = tf.read_gzip('biblio.dat', ['HIP', 'HD'])
         biblio_data.add_index('HIP')
         return join(hip_data, biblio_data, join_type='left', keys='HIP')
+
+
+def load_hip1() -> Table:
+    """Load data for HIP1 stars."""
+    print("Loading HIP1 data")
+    data = Table.read(GAIA_EDR3_DIR/'hip1_subset.vot.gz', format='votable')
+    data.remove_columns(['rahms', 'dedms', 'hpmag'])
+    data.rename_columns(
+        ['hip', 'hd', 'vmag', 'b_v', 'e_b_v', 'v_i', 'e_v_i', 'sptype'],
+        ['HIP', 'HD', 'Vmag', 'B-V', 'e_B-V', 'V-I', 'e_V-I', 'SpType'],
+    )
+    data['SpType'] = data['SpType'].astype(np.str)
+    data['SpType'].mask = data['SpType'] == ''
+    return data
 
 
 def load_tyc2specnew() -> Table:
@@ -166,6 +183,25 @@ def process_hip(data: Table) -> Table:
         table_names=['gaia', 'xhip'],
         metadata_conflicts='silent',
     )
+
+    data = join(
+        data,
+        load_hip1(),
+        keys=['HIP'],
+        join_type='left',
+        table_names=['gaia', 'hip1'],
+    )
+
+    for hip1_col in [c for c in data.colnames]:
+        if not hip1_col.endswith('_hip1'):
+            continue
+        base_col = hip1_col[:-5]
+        gaia_col = base_col + '_gaia'
+        data[base_col] = MaskedColumn(
+            data[gaia_col].filled(data[hip1_col]),
+            mask=np.logical_and(data[hip1_col].mask, data[gaia_col].mask)
+        )
+        data.remove_columns([hip1_col, gaia_col])
 
     data = join(data, load_sao(), keys=['HIP'], join_type='left')
 

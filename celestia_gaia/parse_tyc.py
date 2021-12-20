@@ -166,6 +166,28 @@ def load_ascc() -> Table:
     return data
 
 
+def load_tyc2_suppl1() -> Table:
+    """Loads the Tycho-2 supplement 1 data."""
+    print('Loading TYC2 supplement 1')
+    reader = io_ascii.get_reader(
+        io_ascii.Cds,
+        readme=str(VIZIER_DIR/'tyc2.readme'),
+        include_names=['TYC1', 'TYC2', 'TYC3', 'BTmag', 'VTmag']
+    )
+    reader.data.table_name = 'suppl_1.dat'
+    with gzip.open(VIZIER_DIR/'tyc2suppl_1.dat.gz') as gzf:
+        data = reader.read(gzf)
+
+    parse_tyc_cols(data)
+    data = data[np.logical_not(np.logical_and(data['VTmag'].mask, data['BTmag'].mask))]
+    # Magnitude transformation formulae from Section 2.2 "Contents of the Tycho Catalogue"
+    data['BT-VT'] = data['BTmag'] - data['VTmag']
+    data['Vmag'] = data['VTmag'] - 0.090*data['BT-VT']
+    data['Bmag'] = data['Vmag'] + 0.850*data['BT-VT']
+    data.remove_columns(['BTmag', 'VTmag', 'BT-VT'])
+    return data
+
+
 def load_tyc_hd() -> Table:
     """Load the Tycho-HD cross index."""
     print('Loading TYC-HD cross index')
@@ -278,6 +300,7 @@ def process_tyc(data: Table) -> Table:
         table_names=('gaia', 'tspec'),
         metadata_conflicts='silent',
     )
+
     data = join(
         data, load_ascc(),
         keys=['HIP'],
@@ -301,11 +324,31 @@ def process_tyc(data: Table) -> Table:
         data.remove_column(ascc_col)
 
     data = join(
+        data, load_tyc2_suppl1(),
+        keys=['HIP'],
+        join_type='left',
+        table_names=['gaia', 'tyc2s1'],
+        metadata_conflicts='silent',
+    )
+
+    data['Vmag'] = MaskedColumn(
+        data['Vmag_gaia'].filled(data['Vmag_tyc2s1']),
+        mask=np.logical_and(data['Vmag_gaia'].mask, data['Vmag_tyc2s1'].mask),
+    )
+
+    data['Bmag'] = MaskedColumn(
+        data['Bmag_gaia'].filled(data['Bmag_tyc2s1']),
+        mask=np.logical_and(data['Bmag_gaia'].mask, data['Bmag_tyc2s1'].mask),
+    )
+
+    data.remove_columns(['Vmag_gaia', 'Vmag_tyc2s1', 'Bmag_gaia', 'Bmag_tyc2s1'])
+
+    data = join(
         data, load_tyc_hd(),
         keys=['HIP'],
         join_type='left',
         table_names=['gaia', 'hd'],
-        metadata_conflicts='silent'
+        metadata_conflicts='silent',
     )
     data['HD'] = MaskedColumn(data['HD_hd'].filled(data['HD_gaia'].filled(0)))
     data['HD'].mask = data['HD'] == 0

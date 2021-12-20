@@ -33,7 +33,7 @@ from .parse_tyc import make_tyc, process_tyc
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
 from .utils import WorkaroundCDSReader, open_cds_tarfile
 
-VERSION = "1.1.0-beta.1"
+VERSION = "1.1.0"
 
 # remove the following objects from the output
 
@@ -234,7 +234,7 @@ def merge_all() -> Table:
         data['HIP'] < 1000000,
         data['HIP'],
         make_tyc(data['HIP']//1000000, (data['HIP']//10) % 100000, data['HIP']%10)
-    ).astype('uint32')
+    ).astype(np.uint32)
 
     data['bp_rp'] = data['phot_bp_mean_mag'] - data['phot_rp_mean_mag']
 
