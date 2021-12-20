@@ -95,27 +95,10 @@ impl<B: BufRead + Send> Parser<B> {
         let mut processed = 0;
         while self.reader.next()?.is_some() {
             let hip_info = HipInfo {
-                hip: HipId(
-                    self.reader
-                        .field(self.hip_col)
-                        .parse()
-                        .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
-                ),
-                plx: self
-                    .reader
-                    .field(self.plx_col)
-                    .parse()
-                    .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
-                e_plx: self
-                    .reader
-                    .field(self.e_plx_col)
-                    .parse()
-                    .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
-                healpix: self
-                    .reader
-                    .field(self.healpix_col)
-                    .parse()
-                    .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
+                hip: HipId(self.reader.field(self.hip_col).parse()?),
+                plx: self.reader.field(self.plx_col).parse()?,
+                e_plx: self.reader.field(self.e_plx_col).parse()?,
+                healpix: self.reader.field(self.healpix_col).parse()?,
             };
 
             self.sender

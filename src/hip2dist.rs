@@ -17,6 +17,7 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, ErrorKind, Write};
 use std::path::Path;
@@ -52,24 +53,24 @@ struct DistanceInfo {
     upper: f64,
 }
 
-fn load_priors(path: impl AsRef<Path>) -> io::Result<Vec<PriorInfo>> {
+fn load_priors(path: impl AsRef<Path>) -> Result<Vec<PriorInfo>, AppError> {
     let file = File::open(path)?;
     let mut reader = CsvReader::new(BufReader::new(file))?;
     let healpix_col = reader
         .index("healpix")
-        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing healpix field"))?;
+        .ok_or(AppError::MissingField(Cow::Borrowed(b"healpix")))?;
     let ggd_l_col = reader
         .index("GGDrlen")
-        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing GGDrlen field"))?;
+        .ok_or(AppError::MissingField(Cow::Borrowed(b"GGDrlen")))?;
     let ggd_alpha_col = reader
         .index("GGDalpha")
-        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing GGDalpha field"))?;
+        .ok_or(AppError::MissingField(Cow::Borrowed(b"GGDalpha")))?;
     let ggd_beta_col = reader
         .index("GGDbeta")
-        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing field GGDbeta"))?;
+        .ok_or(AppError::MissingField(Cow::Borrowed(b"GGDbeta")))?;
     let edsd_length_col = reader
         .index("EDSDrlen")
-        .ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "Missing EDSDrlen field"))?;
+        .ok_or(AppError::MissingField(Cow::Borrowed(b"EDSDrlen")))?;
 
     let mut result = Vec::with_capacity(12288);
     while reader.next()?.is_some() {
@@ -78,28 +79,15 @@ fn load_priors(path: impl AsRef<Path>) -> io::Result<Vec<PriorInfo>> {
             .parse()
             .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?;
         if healpix != result.len() {
-            return Err(io::Error::new(
-                ErrorKind::InvalidData,
-                "Prior file is not sequential",
-            ));
+            return Err(
+                io::Error::new(ErrorKind::InvalidData, "Prior file is not sequential").into(),
+            );
         }
         let prior_info = PriorInfo {
-            ggd_l: reader
-                .field(ggd_l_col)
-                .parse()
-                .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
-            ggd_alpha: reader
-                .field(ggd_alpha_col)
-                .parse()
-                .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
-            ggd_beta: reader
-                .field(ggd_beta_col)
-                .parse()
-                .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
-            edsd_length: reader
-                .field(edsd_length_col)
-                .parse()
-                .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?,
+            ggd_l: reader.field(ggd_l_col).parse()?,
+            ggd_alpha: reader.field(ggd_alpha_col).parse()?,
+            ggd_beta: reader.field(ggd_beta_col).parse()?,
+            edsd_length: reader.field(edsd_length_col).parse()?,
         };
         result.push(prior_info);
     }

@@ -22,6 +22,7 @@ use std::borrow::Cow;
 use std::error;
 use std::fmt;
 use std::io;
+use std::num::{ParseFloatError, ParseIntError};
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::PyErr;
@@ -35,6 +36,8 @@ pub enum AppError {
     FieldType(usize, DataType, DataType),
     MissingField(Cow<'static, [u8]>),
     MissingId(String),
+    InvalidFloat(ParseFloatError),
+    InvalidInt(ParseIntError),
     Io(io::Error),
     Xml(quick_xml::Error),
     Capacity(arrayvec::CapacityError),
@@ -71,10 +74,12 @@ impl fmt::Display for AppError {
             ),
             Self::MissingField(s) => write!(f, "Missing field {}", String::from_utf8_lossy(s)),
             Self::MissingId(s) => write!(f, "Missing ID ({})", s),
-            Self::Io(e) => write!(f, "Io error: {}", e),
-            Self::Xml(e) => write!(f, "XML error: {}", e),
-            Self::Capacity(e) => write!(f, "Capacity error: {}", e),
-            Self::Other(e) => write!(f, "Error: {}", e),
+            Self::InvalidFloat(_) => f.write_str("Failed to parse float"),
+            Self::InvalidInt(_) => f.write_str("Failed to parse int"),
+            Self::Io(_) => f.write_str("IO Error"),
+            Self::Xml(_) => f.write_str("XML Error"),
+            Self::Capacity(_) => f.write_str("Capacity error"),
+            Self::Other(_) => f.write_str("Error occurred"),
             Self::Thread(e) => write!(f, "Thread error {:?}", e),
         }
     }
@@ -83,6 +88,8 @@ impl fmt::Display for AppError {
 impl error::Error for AppError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
+            Self::InvalidFloat(e) => Some(e),
+            Self::InvalidInt(e) => Some(e),
             Self::Io(e) => Some(e),
             Self::Xml(e) => Some(e),
             Self::Capacity(e) => Some(e),
@@ -101,6 +108,18 @@ impl From<io::Error> for AppError {
 impl From<io::ErrorKind> for AppError {
     fn from(e: io::ErrorKind) -> Self {
         Self::Io(e.into())
+    }
+}
+
+impl From<ParseFloatError> for AppError {
+    fn from(e: ParseFloatError) -> Self {
+        Self::InvalidFloat(e)
+    }
+}
+
+impl From<ParseIntError> for AppError {
+    fn from(e: ParseIntError) -> Self {
+        Self::InvalidInt(e)
     }
 }
 

@@ -253,7 +253,7 @@ def download_tyc2tdsc_xmatch():
     tyc2tdsc_xmatch_file = GAIA_EDR3_DIR/'tyc2tdsc_hip_xmatch.vot.gz'
     if (
         tyc2tdsc_xmatch_file.exists()
-        and not confirm_action('TYC2TDSC-based TYC-HIP crossmatch exists, replace?')
+        and not confirm_action('Re-download TYC2TDSC-HIP identifier map?')
     ):
         return
 
@@ -311,7 +311,7 @@ def download_gaia() -> None:
 
     hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, 'gaiaedr3-hip2-*.vot.gz')
     if not hip_ranges:
-        if confirm_action('HIP2 cross-match data already downloaded, replace?'):
+        if confirm_action('HIP2-Gaia cross-match data already downloaded, replace?'):
             hip_ranges = MultiRange(1, _HIP_MAX)
     download_gaia_hip2(hip_ranges)
 
@@ -319,7 +319,7 @@ def download_gaia() -> None:
 
     tyc_ranges = _getranges(1, _TYC_MAX, GAIA_EDR3_DIR, 'gaiaedr3-tyctdsc-*.vot.gz')
     if not tyc_ranges:
-        if confirm_action('TYC TDSC cross-match data already downloaded, replace?'):
+        if confirm_action('TYC2TDSC-Gaia cross-match data already downloaded, replace?'):
             tyc_ranges = MultiRange(1, _TYC_MAX)
     download_gaia_tyctdsc(tyc_ranges)
 
@@ -332,7 +332,7 @@ def build_xmatches() -> None:
         not (GAIA_EDR3_DIR/'xmatch-gaia-hiptyc.vot.gz').exists()
         or confirm_action('Re-generate HIP/TYC cross-match?')
     ):
-        build_xmatch(GAIA_EDR3_DIR, 'xmatch-gaia-hiptyc.vot.gz')
+        build_xmatch(GAIA_EDR3_DIR, VIZIER_DIR, 'xmatch-gaia-hiptyc.vot.gz')
 
 
 def download_gaia_distances(chunk_size: int = 250000) -> None:

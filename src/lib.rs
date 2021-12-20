@@ -32,6 +32,7 @@ mod astro;
 mod csv;
 mod error;
 mod hip2dist;
+mod tychip;
 mod votable;
 mod xmatch;
 
@@ -41,77 +42,41 @@ use crate::tychip::load_tyc2hip;
 use crate::votable::VotableReader;
 use crate::xmatch::Crossmatcher;
 
-const HIP_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";
-const TYC_PATTERN: &str = "**/gaiaedr3-tyctdsc-*.vot.gz";
+const HIP2_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";
+const TYC2TDSC_PATTERN: &str = "**/gaiaedr3-tyctdsc-*.vot.gz";
 const XMATCH_PATTERN: &str = "**/xmatch-*.vot.gz";
 const DISTANCE_PATTERN: &str = "**/gaiaedr3-distance-*.vot.gz";
 
-fn load_tyc2hip(path: &Path) -> Result<HashMap<TycId, HipId>, AppError> {
-    let mut path = PathBuf::from(path);
-    path.push("tyc2tdsc_hip_xmatch.vot.gz");
-
-    let file = File::open(path)?;
-    let mut reader = VotableReader::new(file)?;
-
-    let id_tycho_col = reader.ordinal(b"id_tycho")?;
-    let hip_col = reader.ordinal(b"hip")?;
-    let comp_col = reader.ordinal(b"cmp")?;
-
-    let mut hip2tyc = HashMap::new();
-    while let Some(accessor) = reader.read()? {
-        let id_tycho = TycId(
-            accessor
-                .read_i64(id_tycho_col)?
-                .ok_or_else(|| AppError::missing_id("id_tycho"))?,
-        );
-        let hip = HipId(
-            accessor
-                .read_i32(hip_col)?
-                .ok_or_else(|| AppError::missing_id("hip"))?,
-        );
-        let cmp = accessor.read_char::<2>(comp_col)?;
-
-        match hip2tyc.entry(hip) {
-            Entry::Vacant(v) => {
-                v.insert((id_tycho, cmp));
-            }
-            Entry::Occupied(mut o) => {
-                if cmp < o.get().1 {
-                    o.insert((id_tycho, cmp));
-                }
-            }
-        }
-    }
-
-    Ok(hip2tyc.into_iter().map(|(h, (t, _))| (t, h)).collect())
-}
-
-fn full_crossmatch(path: &Path, output_name: &str) -> Result<(), AppError> {
-    let tyc2hip = load_tyc2hip(path)?;
+fn full_crossmatch(
+    gaia_path: &Path,
+    vizier_path: &Path,
+    output_name: &str,
+) -> Result<(), AppError> {
+    let tyc2hip = load_tyc2hip(gaia_path, vizier_path)?;
     let mut crossmatcher = Crossmatcher::new(tyc2hip);
 
-    let hip_pattern = Glob::new(HIP_PATTERN)?.compile_matcher();
-    let tyc_pattern = Glob::new(TYC_PATTERN)?.compile_matcher();
-    for entry in read_dir(path)? {
+    let hip2_pattern = Glob::new(HIP2_PATTERN)?.compile_matcher();
+    let tyc2tdsc_pattern = Glob::new(TYC2TDSC_PATTERN)?.compile_matcher();
+    for entry in read_dir(gaia_path)? {
         let entry = entry?;
         if !entry.metadata()?.is_file() {
             continue;
         }
         let entry_path = entry.path();
-        if hip_pattern.is_match(&entry_path) {
-            println!("Processing HIP entry: {}", entry_path.to_string_lossy());
+        if hip2_pattern.is_match(&entry_path) {
+            println!("Processing HIP2 entry: {}", entry_path.to_string_lossy());
             let file = File::open(entry_path)?;
             let reader = VotableReader::new(file)?;
             crossmatcher.add_hip(reader)?;
-        } else if tyc_pattern.is_match(&entry_path) {
-            println!("Processing TYC entry: {}", entry_path.to_string_lossy());
+        } else if tyc2tdsc_pattern.is_match(&entry_path) {
+            println!("Processing TYC2TDSC entry: {}", entry_path.to_string_lossy());
             let file = File::open(entry_path)?;
             let reader = VotableReader::new(file)?;
             crossmatcher.add_tyc(reader)?;
         }
     }
 
-    let mut output_path = path.to_path_buf();
+    let mut output_path = gaia_path.to_path_buf();
     output_path.push(output_name);
 
     let file = File::create(output_path)?;
@@ -210,9 +175,19 @@ fn apply_distances(gaia_dir: &Path, source_ids: &[i64]) -> Result<Vec<f32>, AppE
 #[pymodule]
 fn celestia_gaia(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m)]
-    #[pyo3(name = "build_xmatch", text_signature = "()")]
-    fn build_xmatch_py<'py>(_py: Python<'py>, gaia_dir: &PyAny, output_name: &str) -> PyResult<()> {
-        full_crossmatch(gaia_dir.str()?.to_str()?.as_ref(), output_name)?;
+    #[pyo3(
+        name = "build_xmatch",
+        text_signature = "(gaia_dir, vizier_dir, output_name, /)"
+    )]
+    fn build_xmatch_py<'py>(
+        _py: Python<'py>,
+        gaia_dir: &PyAny,
+        vizier_dir: &PyAny,
+        output_name: &str,
+    ) -> PyResult<()> {
+        let gaia_dir = gaia_dir.str()?.to_str()?.as_ref();
+        let vizier_dir = vizier_dir.str()?.to_str()?.as_ref();
+        full_crossmatch(gaia_dir, vizier_dir, output_name)?;
         Ok(())
     }
 
