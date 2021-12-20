@@ -21,6 +21,8 @@ use std::cmp;
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, ErrorKind, Read};
 use std::mem;
+use std::num::NonZeroUsize;
+use std::str;
 
 use arrayvec::ArrayVec;
 use bitvec::prelude::*;
@@ -34,10 +36,16 @@ use super::{DataType, VOTABLE_NS};
 
 use crate::error::AppError;
 
+enum ArraySize {
+    None,
+    Fixed(NonZeroUsize),
+    Variable,
+}
+
 fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), AppError> {
     let mut name = None;
     let mut datatype = None;
-    let mut is_variable_length_array = false;
+    let mut array_size = ArraySize::None;
     for attribute_result in attributes {
         let attribute = attribute_result?;
         match attribute.key {
@@ -45,23 +53,27 @@ fn parse_field(attributes: Attributes) -> Result<(Vec<u8>, DataType), AppError> 
             b"datatype" => datatype = Some(DataType::parse_bytes(&attribute.value)?),
             b"arraysize" => {
                 if attribute.value.as_ref() == b"*" {
-                    is_variable_length_array = true;
+                    array_size = ArraySize::Variable;
                 } else {
-                    return Err(AppError::parse("Fixed size arrays not supported"));
+                    let size = str::from_utf8(&attribute.value)?.parse()?;
+                    array_size = ArraySize::Fixed(
+                        NonZeroUsize::new(size)
+                            .ok_or(AppError::parse("Zero-length arrays not supported"))?,
+                    );
                 }
             }
             _ => (),
         }
     }
 
-    match (name, datatype) {
-        (Some(n), Some(DataType::Char)) if is_variable_length_array => Ok((n, DataType::Char)),
-        (Some(_), Some(DataType::Char)) => Err(AppError::parse("Char fields not supported")),
-        (Some(_), Some(_)) if is_variable_length_array => {
-            Err(AppError::parse("Non-string arrays not supported"))
-        }
-        (Some(n), Some(dt)) => Ok((n, dt)),
-        _ => Err(AppError::parse("Field must have name and datatype")),
+    let name = name.ok_or(AppError::parse("Field name missing"))?;
+    let datatype = datatype.ok_or(AppError::parse("Field datatype missing"))?;
+
+    match (datatype, array_size) {
+        (DataType::Char, ArraySize::Variable) => Ok((name, DataType::String(None))),
+        (DataType::Char, ArraySize::Fixed(n)) => Ok((name, DataType::String(Some(n)))),
+        (_, ArraySize::None) => Ok((name, datatype)),
+        _ => Err(AppError::parse("Non-string arrays not supported")),
     }
 }
 
@@ -307,13 +319,17 @@ impl<'a> RecordAccessor<'a> {
         Ok((&self.data[offset..offset + mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
     }
 
-    pub fn read_char<const CAP: usize>(
+    pub fn read_string<const CAP: usize>(
         &self,
         ordinal: usize,
     ) -> Result<ArrayVec<u8, CAP>, AppError> {
         let field_type = self.field_types[ordinal];
-        if field_type != DataType::Char {
-            return Err(AppError::field_type(ordinal, DataType::Char, field_type));
+        if !matches!(field_type, DataType::Char | DataType::String(_)) {
+            return Err(AppError::field_type(
+                ordinal,
+                DataType::String(None),
+                field_type,
+            ));
         }
 
         if self.mask[ordinal] {
@@ -321,9 +337,24 @@ impl<'a> RecordAccessor<'a> {
         }
 
         let offset = self.field_offsets[ordinal];
-        let data_offset = offset + mem::size_of::<u32>();
-        let length = (&self.data[offset..data_offset]).read_u32::<BigEndian>()? as usize;
-        Ok(self.data[data_offset..data_offset + length].try_into()?)
+        match field_type {
+            DataType::Char => Ok([self.data[offset]].as_slice().try_into()?),
+            DataType::String(Some(n)) => {
+                let slice = &self.data[offset..offset + n.get()];
+                let length = slice.iter().position(|&b| b == 0).unwrap_or(slice.len());
+                if length <= CAP {
+                    Ok(slice[..length].try_into()?)
+                } else {
+                    Err(AppError::Parse("String field too long"))
+                }
+            }
+            DataType::String(None) => {
+                let data_offset = offset + mem::size_of::<u32>();
+                let length = (&self.data[offset..data_offset]).read_u32::<BigEndian>()? as usize;
+                Ok(self.data[data_offset..data_offset + length].try_into()?)
+            }
+            _ => unreachable!(),
+        }
     }
 }
 

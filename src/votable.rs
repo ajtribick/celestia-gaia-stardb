@@ -38,6 +38,7 @@ pub enum DataType {
     Float,
     Double,
     Char,
+    String(Option<NonZeroUsize>),
 }
 
 impl DataType {
@@ -60,7 +61,9 @@ impl DataType {
             Self::Long => NonZeroUsize::new(8),
             Self::Float => NonZeroUsize::new(4),
             Self::Double => NonZeroUsize::new(8),
-            Self::Char => None,
+            Self::Char => NonZeroUsize::new(1),
+            Self::String(Some(s)) => Some(*s),
+            Self::String(None) => None,
         }
     }
 }
@@ -74,6 +77,7 @@ impl fmt::Display for DataType {
             Self::Float => f.write_str("float"),
             Self::Double => f.write_str("double"),
             Self::Char => f.write_str("char"),
+            Self::String(_) => f.write_str("char array"),
         }
     }
 }

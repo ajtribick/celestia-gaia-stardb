@@ -90,7 +90,7 @@ fn load_tyc2tdsc_hip(path: &Path, hip2tyc: &mut TycHipMap) -> Result<(), AppErro
                 .read_i32(hip_col)?
                 .ok_or_else(|| AppError::missing_id("hip"))?,
         );
-        let cmp = accessor.read_char::<2>(comp_col)?;
+        let cmp = accessor.read_string::<2>(comp_col)?;
 
         hip2tyc.add(hip, id_tycho, cmp);
     }

@@ -94,8 +94,8 @@ struct TycOrdinals {
     pub de_deg: usize,
     pub bt_mag: usize,
     pub vt_mag: usize,
-    pub ep_ra1990: usize,
-    pub ep_de1990: usize,
+    pub ep_ra1990: Option<usize>,
+    pub ep_de1990: Option<usize>,
 }
 
 impl TycOrdinals {
@@ -106,8 +106,8 @@ impl TycOrdinals {
             de_deg: reader.ordinal(b"tyc_dec")?,
             bt_mag: reader.ordinal(b"bt_mag")?,
             vt_mag: reader.ordinal(b"vt_mag")?,
-            ep_ra1990: reader.ordinal(b"ep_ra1990")?,
-            ep_de1990: reader.ordinal(b"ep_de1990")?,
+            ep_ra1990: reader.ordinal(b"ep_ra1990").ok(),
+            ep_de1990: reader.ordinal(b"ep_de1990").ok(),
         })
     }
 }
@@ -378,7 +378,9 @@ impl CrossmatchStar {
                 ra: accessor.read_f64(ordinals.hip_ra)?,
                 dec: accessor.read_f64(ordinals.hip_dec)?,
             },
-            hp_mag: accessor.read_f64(ordinals.hp_mag)?,
+            hp_mag: accessor
+                .read_f64(ordinals.hp_mag)
+                .or_else(|_| accessor.read_f32(ordinals.hp_mag).map(|h| h as f64))?,
             bt_mag: f32::NAN,
             vt_mag: f32::NAN,
             epoch_ra: 1.25,
@@ -399,10 +401,18 @@ impl CrossmatchStar {
                 dec: accessor.read_f64(ordinals.de_deg)?,
             },
             hp_mag: f64::NAN,
-            bt_mag: accessor.read_f32(ordinals.bt_mag)?,
-            vt_mag: accessor.read_f32(ordinals.vt_mag)?,
-            epoch_ra: accessor.read_f32(ordinals.ep_ra1990)?,
-            epoch_dec: accessor.read_f32(ordinals.ep_de1990)?,
+            bt_mag: accessor
+                .read_f32(ordinals.bt_mag)
+                .or_else(|_| accessor.read_f64(ordinals.bt_mag).map(|x| x as f32))?,
+            vt_mag: accessor
+                .read_f32(ordinals.vt_mag)
+                .or_else(|_| accessor.read_f64(ordinals.vt_mag).map(|x| x as f32))?,
+            epoch_ra: ordinals
+                .ep_ra1990
+                .map_or(Ok(1.25), |ord| accessor.read_f32(ord))?,
+            epoch_dec: ordinals
+                .ep_de1990
+                .map_or(Ok(1.25), |ord| accessor.read_f32(ord))?,
         })
     }
 

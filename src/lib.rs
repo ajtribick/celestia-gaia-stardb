@@ -42,8 +42,10 @@ use crate::tychip::load_tyc2hip;
 use crate::votable::VotableReader;
 use crate::xmatch::Crossmatcher;
 
+const HIP1_PATTERN: &str = "**/gaiaedr3-hip1.vot.gz";
 const HIP2_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";
 const TYC2TDSC_PATTERN: &str = "**/gaiaedr3-tyctdsc-*.vot.gz";
+const TYC2_SUPPL1_PATTERN: &str = "**/gaiaedr3-tyc2suppl1.vot.gz";
 const XMATCH_PATTERN: &str = "**/xmatch-*.vot.gz";
 const DISTANCE_PATTERN: &str = "**/gaiaedr3-distance-*.vot.gz";
 
@@ -55,21 +57,39 @@ fn full_crossmatch(
     let tyc2hip = load_tyc2hip(gaia_path, vizier_path)?;
     let mut crossmatcher = Crossmatcher::new(tyc2hip);
 
+    let hip1_pattern = Glob::new(HIP1_PATTERN)?.compile_matcher();
     let hip2_pattern = Glob::new(HIP2_PATTERN)?.compile_matcher();
     let tyc2tdsc_pattern = Glob::new(TYC2TDSC_PATTERN)?.compile_matcher();
+    let tyc2_suppl1_pattern = Glob::new(TYC2_SUPPL1_PATTERN)?.compile_matcher();
     for entry in read_dir(gaia_path)? {
         let entry = entry?;
         if !entry.metadata()?.is_file() {
             continue;
         }
         let entry_path = entry.path();
-        if hip2_pattern.is_match(&entry_path) {
+        if hip1_pattern.is_match(&entry_path) {
+            println!("Processing HIP1 entry: {}", entry_path.to_string_lossy());
+            let file = File::open(entry_path)?;
+            let reader = VotableReader::new(file)?;
+            crossmatcher.add_hip(reader)?;
+        } else if hip2_pattern.is_match(&entry_path) {
             println!("Processing HIP2 entry: {}", entry_path.to_string_lossy());
             let file = File::open(entry_path)?;
             let reader = VotableReader::new(file)?;
             crossmatcher.add_hip(reader)?;
         } else if tyc2tdsc_pattern.is_match(&entry_path) {
-            println!("Processing TYC2TDSC entry: {}", entry_path.to_string_lossy());
+            println!(
+                "Processing TYC2TDSC entry: {}",
+                entry_path.to_string_lossy()
+            );
+            let file = File::open(entry_path)?;
+            let reader = VotableReader::new(file)?;
+            crossmatcher.add_tyc(reader)?;
+        } else if tyc2_suppl1_pattern.is_match(&entry_path) {
+            println!(
+                "Processing TYC2 supplement 1 entry: {}",
+                entry_path.to_string_lossy()
+            );
             let file = File::open(entry_path)?;
             let reader = VotableReader::new(file)?;
             crossmatcher.add_tyc(reader)?;

@@ -23,6 +23,7 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::num::{ParseFloatError, ParseIntError};
+use std::str::Utf8Error;
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::PyErr;
@@ -38,6 +39,7 @@ pub enum AppError {
     MissingId(String),
     InvalidFloat(ParseFloatError),
     InvalidInt(ParseIntError),
+    InvalidUtf8(Utf8Error),
     Io(io::Error),
     Xml(quick_xml::Error),
     Capacity(arrayvec::CapacityError),
@@ -76,6 +78,7 @@ impl fmt::Display for AppError {
             Self::MissingId(s) => write!(f, "Missing ID ({})", s),
             Self::InvalidFloat(_) => f.write_str("Failed to parse float"),
             Self::InvalidInt(_) => f.write_str("Failed to parse int"),
+            Self::InvalidUtf8(_) => f.write_str("Invalid UTF-8"),
             Self::Io(_) => f.write_str("IO Error"),
             Self::Xml(_) => f.write_str("XML Error"),
             Self::Capacity(_) => f.write_str("Capacity error"),
@@ -90,6 +93,7 @@ impl error::Error for AppError {
         match self {
             Self::InvalidFloat(e) => Some(e),
             Self::InvalidInt(e) => Some(e),
+            Self::InvalidUtf8(e) => Some(e),
             Self::Io(e) => Some(e),
             Self::Xml(e) => Some(e),
             Self::Capacity(e) => Some(e),
@@ -120,6 +124,12 @@ impl From<ParseFloatError> for AppError {
 impl From<ParseIntError> for AppError {
     fn from(e: ParseIntError) -> Self {
         Self::InvalidInt(e)
+    }
+}
+
+impl From<Utf8Error> for AppError {
+    fn from(e: Utf8Error) -> Self {
+        Self::InvalidUtf8(e)
     }
 }
 
