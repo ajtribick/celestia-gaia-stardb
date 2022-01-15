@@ -74,6 +74,7 @@ struct HipOrdinals {
     pub hip_ra: usize,
     pub hip_dec: usize,
     pub hp_mag: usize,
+    pub hip_parallax: Option<usize>,
 }
 
 impl HipOrdinals {
@@ -83,6 +84,7 @@ impl HipOrdinals {
             hip_ra: reader.ordinal(b"hip_ra")?,
             hip_dec: reader.ordinal(b"hip_dec")?,
             hp_mag: reader.ordinal(b"hp_mag")?,
+            hip_parallax: reader.ordinal(b"hip_parallax").ok(),
         })
     }
 }
@@ -133,6 +135,7 @@ struct CrossmatchStar {
     pub id: i64,
     pub coords: SkyCoords,
     pub hp_mag: f64,
+    pub parallax: f64,
     pub bt_mag: f32,
     pub vt_mag: f32,
     pub epoch_ra: f32,
@@ -381,6 +384,7 @@ impl CrossmatchStar {
             hp_mag: accessor
                 .read_f64(ordinals.hp_mag)
                 .or_else(|_| accessor.read_f32(ordinals.hp_mag).map(|h| h as f64))?,
+            parallax: ordinals.hip_parallax.map_or(Ok(f64::NAN), |n| accessor.read_f64(n))?,
             bt_mag: f32::NAN,
             vt_mag: f32::NAN,
             epoch_ra: 1.25,
@@ -401,6 +405,7 @@ impl CrossmatchStar {
                 dec: accessor.read_f64(ordinals.de_deg)?,
             },
             hp_mag: f64::NAN,
+            parallax: f64::NAN,
             bt_mag: accessor
                 .read_f32(ordinals.bt_mag)
                 .or_else(|_| accessor.read_f64(ordinals.bt_mag).map(|x| x as f32))?,
@@ -493,6 +498,12 @@ impl CrossmatchStar {
             + ((calc_pm.pm_dec - pm.pm_dec) / e_pm.pm_dec).sqr();
         assert!(!pm_diff.is_nan());
 
+        let plx_diff = if self.parallax.is_nan() || gaia_star.parallax.is_nan() {
+            100.0
+        } else {
+            (self.parallax - gaia_star.parallax) / gaia_star.parallax_error as f64
+        };
+
         let bp_mag = if gaia_star.phot_bp_mean_mag.is_nan() {
             gaia_star.phot_g_mean_mag
         } else {
@@ -524,7 +535,7 @@ impl CrossmatchStar {
 
         assert!(!mag_diff.is_nan());
 
-        pm_diff + mag_diff.sqr() + (dist / MAS_TO_DEG).sqr()
+        pm_diff.recip() + plx_diff.sqr().recip() + mag_diff.sqr().recip() + (dist / MAS_TO_DEG).sqr().recip()
     }
 }
 
@@ -598,7 +609,7 @@ impl Crossmatcher {
             self.crossmatch_stars.len()
         );
         self.matches
-            .sort_unstable_by(|(_, _, a), (_, _, b)| b.partial_cmp(a).unwrap());
+            .sort_unstable_by(|(_, _, a), (_, _, b)| a.partial_cmp(b).unwrap());
 
         let mut writer = VotableWriter::new(writer)?;
         writer.write_fields(CROSSMATCH_FIELDS.as_ref())?;
