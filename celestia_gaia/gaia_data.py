@@ -35,6 +35,7 @@ from .celestia_gaia import build_xmatch, get_required_dist_source_ids
 
 _HIP_MAX = 120404
 _TYC_MAX = 9537
+_MAX_MAG_DIFF = 3
 
 
 # --- DOWNLOAD CROSSMATCH CANDIDATES ---
@@ -52,7 +53,7 @@ FROM
         POINT('ICRS', h.ra, h.dec),
         CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
     )
-WHERE ABS(h.hp_mag-g.phot_g_mean_mag) <= 3
+WHERE ABS(h.hp_mag-g.phot_g_mean_mag) <= {_MAX_MAG_DIFF}
     """
 
 
@@ -76,7 +77,7 @@ FROM
     )
 WHERE
     h.hip BETWEEN {start} and {end}
-    AND ABS(h.hp_mag-g.phot_g_mean_mag) <= 3
+    AND ABS(h.hp_mag-g.phot_g_mean_mag) <= {_MAX_MAG_DIFF}
     """
 
 
@@ -102,7 +103,7 @@ FROM
     )
 WHERE
     t.id_tycho BETWEEN {id_start} AND {id_end}
-    AND ABS(COALESCE(t.vt_mag, t.bt_mag)-g.phot_g_mean_mag) <= 3
+    AND ABS(COALESCE(t.vt_mag, t.bt_mag)-g.phot_g_mean_mag) <= {_MAX_MAG_DIFF}
     """
 
 
@@ -125,7 +126,7 @@ FROM
         CIRCLE('ICRS', g.ra, g.dec, 2.0/60.0)
     )
 WHERE
-    ABS(COALESCE(t.vt_mag, t.bt_mag)-g.phot_g_mean_mag) <= 3
+    ABS(COALESCE(t.vt_mag, t.bt_mag)-g.phot_g_mean_mag) <= {_MAX_MAG_DIFF}
     """
 
 
