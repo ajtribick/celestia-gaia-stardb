@@ -535,7 +535,7 @@ impl CrossmatchStar {
 
         assert!(!mag_diff.is_nan());
 
-        pm_diff.recip() + plx_diff.sqr().recip() + mag_diff.sqr().recip() + (dist / MAS_TO_DEG).sqr().recip()
+        (pm_diff + 0.02).recip() + (plx_diff + 0.01).sqr().recip() + 100.0 / mag_diff.sqr() + 100.0 / (dist / MAS_TO_DEG).sqr()
     }
 }
 

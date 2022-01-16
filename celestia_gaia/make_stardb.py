@@ -33,7 +33,7 @@ from .parse_tyc import make_tyc, process_tyc
 from .spparse import CEL_UNKNOWN_STAR, parse_spectrum
 from .utils import WorkaroundCDSReader, open_cds_tarfile
 
-VERSION = "1.1.1-alpha.1"
+VERSION = "1.1.1-alpha.2"
 
 # remove the following objects from the output
 
