@@ -261,34 +261,39 @@ impl<'a> RecordAccessor<'a> {
 
     pub fn read_i32(&self, ordinal: usize) -> Result<Option<i32>, AppError> {
         let field_type = self.field_types[ordinal];
-        if field_type != DataType::Int {
-            return Err(AppError::field_type(ordinal, DataType::Int, field_type));
-        }
+        match field_type {
+            DataType::Short => self.read_i16(ordinal).map(|res| res.map(|n| n as i32)),
+            DataType::Int => {
+                if self.mask[ordinal] {
+                    return Ok(None);
+                }
 
-        if self.mask[ordinal] {
-            return Ok(None);
+                let offset = self.field_offsets[ordinal];
+                Ok(Some(
+                    (&self.data[offset..offset + mem::size_of::<i32>()]).read_i32::<BigEndian>()?,
+                ))
+            }
+            _ => Err(AppError::field_type(ordinal, DataType::Int, field_type)),
         }
-
-        let offset = self.field_offsets[ordinal];
-        Ok(Some(
-            (&self.data[offset..offset + mem::size_of::<i32>()]).read_i32::<BigEndian>()?,
-        ))
     }
 
     pub fn read_i64(&self, ordinal: usize) -> Result<Option<i64>, AppError> {
         let field_type = self.field_types[ordinal];
-        if field_type != DataType::Long {
-            return Err(AppError::field_type(ordinal, DataType::Long, field_type));
-        }
+        match field_type {
+            DataType::Short => return self.read_i16(ordinal).map(|res| res.map(|n| n as i64)),
+            DataType::Int => return self.read_i32(ordinal).map(|res| res.map(|n| n as i64)),
+            DataType::Long => {
+                if self.mask[ordinal] {
+                    return Ok(None);
+                }
 
-        if self.mask[ordinal] {
-            return Ok(None);
+                let offset = self.field_offsets[ordinal];
+                Ok(Some(
+                    (&self.data[offset..offset + mem::size_of::<i64>()]).read_i64::<BigEndian>()?,
+                ))
+            }
+            _ => return Err(AppError::field_type(ordinal, DataType::Long, field_type)),
         }
-
-        let offset = self.field_offsets[ordinal];
-        Ok(Some(
-            (&self.data[offset..offset + mem::size_of::<i64>()]).read_i64::<BigEndian>()?,
-        ))
     }
 
     pub fn read_f32(&self, ordinal: usize) -> Result<f32, AppError> {
@@ -307,16 +312,18 @@ impl<'a> RecordAccessor<'a> {
 
     pub fn read_f64(&self, ordinal: usize) -> Result<f64, AppError> {
         let field_type = self.field_types[ordinal];
-        if field_type != DataType::Double {
-            return Err(AppError::field_type(ordinal, DataType::Double, field_type));
-        }
+        match field_type {
+            DataType::Float => self.read_f32(ordinal).map(|res| res as f64),
+            DataType::Double => {
+                if self.mask[ordinal] {
+                    return Ok(f64::NAN);
+                }
 
-        if self.mask[ordinal] {
-            return Ok(f64::NAN);
+                let offset = self.field_offsets[ordinal];
+                Ok((&self.data[offset..offset + mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
+            }
+            _ => Err(AppError::field_type(ordinal, DataType::Double, field_type)),
         }
-
-        let offset = self.field_offsets[ordinal];
-        Ok((&self.data[offset..offset + mem::size_of::<f64>()]).read_f64::<BigEndian>()?)
     }
 
     pub fn read_string<const CAP: usize>(

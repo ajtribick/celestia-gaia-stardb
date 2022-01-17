@@ -381,10 +381,10 @@ impl CrossmatchStar {
                 ra: accessor.read_f64(ordinals.hip_ra)?,
                 dec: accessor.read_f64(ordinals.hip_dec)?,
             },
-            hp_mag: accessor
-                .read_f64(ordinals.hp_mag)
-                .or_else(|_| accessor.read_f32(ordinals.hp_mag).map(|h| h as f64))?,
-            parallax: ordinals.hip_parallax.map_or(Ok(f64::NAN), |n| accessor.read_f64(n))?,
+            hp_mag: accessor.read_f64(ordinals.hp_mag)?,
+            parallax: ordinals
+                .hip_parallax
+                .map_or(Ok(f64::NAN), |n| accessor.read_f64(n))?,
             bt_mag: f32::NAN,
             vt_mag: f32::NAN,
             epoch_ra: 1.25,
@@ -498,11 +498,12 @@ impl CrossmatchStar {
             + ((calc_pm.pm_dec - pm.pm_dec) / e_pm.pm_dec).sqr();
         assert!(!pm_diff.is_nan());
 
-        let plx_diff = if self.parallax.is_nan() || gaia_star.parallax.is_nan() {
-            100.0
-        } else {
-            (self.parallax - gaia_star.parallax) / gaia_star.parallax_error as f64
-        };
+        let plx_diff =
+            if self.parallax.is_nan() || self.parallax <= 0.0 || gaia_star.parallax.is_nan() {
+                100.0
+            } else {
+                (self.parallax - gaia_star.parallax) / gaia_star.parallax_error as f64
+            };
 
         let bp_mag = if gaia_star.phot_bp_mean_mag.is_nan() {
             gaia_star.phot_g_mean_mag
@@ -535,7 +536,10 @@ impl CrossmatchStar {
 
         assert!(!mag_diff.is_nan());
 
-        (pm_diff + 0.02).recip() + (plx_diff + 0.01).sqr().recip() + 100.0 / mag_diff.sqr() + 100.0 / (dist / MAS_TO_DEG).sqr()
+        (pm_diff + 0.02).recip()
+            + (plx_diff + 0.01).sqr().recip()
+            + 100.0 / mag_diff.sqr()
+            + 100.0 / (dist / MAS_TO_DEG).sqr()
     }
 }
 

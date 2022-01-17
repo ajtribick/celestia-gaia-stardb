@@ -35,7 +35,7 @@ from .celestia_gaia import build_xmatch, get_required_dist_source_ids
 
 _HIP_MAX = 120404
 _TYC_MAX = 9537
-_MAX_MAG_DIFF = 3
+_MAX_MAG_DIFF = 4
 
 
 # --- DOWNLOAD CROSSMATCH CANDIDATES ---
