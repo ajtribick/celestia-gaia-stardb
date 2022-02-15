@@ -299,7 +299,6 @@ def process_data() -> Table:
     unknown_spectra = estimate_spectra(unknown_spectra)
     data = join(
         data,
-
         unknown_spectra['HIP', 'CelSpec'],
         keys=['HIP'],
         join_type='left',

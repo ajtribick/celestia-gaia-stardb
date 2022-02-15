@@ -205,15 +205,31 @@ def process_hip(data: Table) -> Table:
 
     data = join(data, load_sao(), keys=['HIP'], join_type='left')
 
+    data['r_est_gaia'] = data['r_est_gaia'].filled(np.nan)
+    data['r_est_xhip'] = data['r_est_xhip'].filled(np.nan)
+
     data['r_gaia_score'] = np.where(
-        data['r_est_gaia'].mask,
-        -20000.0,
-        np.where(data['parallax'] <= 0, -10000.0, data['parallax'] / data['parallax_error']),
-    )
-    data['r_xhip_score'] = np.where(data['Plx'] <= 0, -10000.0, data['Plx'] / data['e_Plx'])
+        data['parallax'] <= 0,
+        -10000.0,
+        data['parallax'] / data['parallax_error'])
+
+    data['r_xhip_score'] = np.where(
+        data['Plx'] <= 0,
+        -10000.0,
+        data['Plx'] / data['e_Plx'])
 
     data['dist_use'] = np.where(
-        data['r_gaia_score'] >= data['r_xhip_score'], data['r_est_gaia'], data['r_est_xhip']
+        np.isnan(data['r_est_gaia']),
+        data['r_est_xhip'],
+        np.where(
+            np.isnan(data['r_est_xhip']),
+            data['r_est_gaia'],
+            np.where(
+                data['r_gaia_score'] >= data['r_xhip_score'],
+                data['r_est_gaia'],
+                data['r_est_xhip']
+            )
+        )
     )
     data['dist_use'].unit = u.pc
 
