@@ -109,7 +109,7 @@ WHERE
 
 def _tyc2_supplement1_query(upload_name: str) -> str:
     return f"""SELECT
-    t.id_tycho, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
+    t.tyc1, t.tyc2, t.tyc3, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
     t.bt_mag, t.vt_mag,
     g.source_id, g.ra, g.dec, g.parallax, g.parallax_error, g.dr2_radial_velocity, g.ref_epoch,
     g.pmra, g.pmra_error, g.pmdec, g.pmdec_error,
@@ -237,12 +237,19 @@ def download_gaia_tyc2_supplement1() -> None:
     with gzip.open(VIZIER_DIR/'tyc2suppl_1.dat.gz', 'rb') as gzf:
         table = reader.read(gzf)
 
-    table['id_tycho'] = table['TYC1']*1000000 + table['TYC2']*10 + table['TYC3']
-    table.remove_columns(['TYC1', 'TYC2', 'TYC3'])
-
     table.rename_columns(
-        ['RAdeg', 'DEdeg', 'pmRA', 'pmDE', 'BTmag', 'VTmag', 'HIP', 'CCDM'],
-        ['ra_deg', 'de_deg', 'pm_ra', 'pm_de', 'bt_mag', 'vt_mag', 'hip', 'cmp'],
+        [
+            'TYC1', 'TYC2', 'TYC3',
+            'RAdeg', 'DEdeg', 'pmRA', 'pmDE',
+            'BTmag', 'VTmag',
+            'HIP', 'CCDM',
+        ],
+        [
+            'tyc1', 'tyc2', 'tyc3',
+            'ra_deg', 'de_deg', 'pm_ra', 'pm_de',
+            'bt_mag', 'vt_mag',
+            'hip', 'cmp',
+        ],
     )
 
     query = _tyc2_supplement1_query('tyc2suppl1')

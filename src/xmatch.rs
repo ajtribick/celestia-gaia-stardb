@@ -115,6 +115,35 @@ impl TycOrdinals {
 }
 
 #[derive(Debug)]
+struct TycSupplementOrdinals {
+    pub tyc1: usize,
+    pub tyc2: usize,
+    pub tyc3: usize,
+    pub ra_deg: usize,
+    pub de_deg: usize,
+    pub bt_mag: usize,
+    pub vt_mag: usize,
+    pub ep_ra1990: Option<usize>,
+    pub ep_de1990: Option<usize>,
+}
+
+impl TycSupplementOrdinals {
+    fn from_reader(reader: &VotableReader<impl Read>) -> Result<Self, AppError> {
+        Ok(Self {
+            tyc1: reader.ordinal(b"tyc1")?,
+            tyc2: reader.ordinal(b"tyc2")?,
+            tyc3: reader.ordinal(b"tyc3")?,
+            ra_deg: reader.ordinal(b"tyc_ra")?,
+            de_deg: reader.ordinal(b"tyc_dec")?,
+            bt_mag: reader.ordinal(b"bt_mag")?,
+            vt_mag: reader.ordinal(b"vt_mag")?,
+            ep_ra1990: reader.ordinal(b"ep_ra1990").ok(),
+            ep_de1990: reader.ordinal(b"ep_de1990").ok(),
+        })
+    }
+}
+
+#[derive(Debug)]
 struct GaiaStar {
     pub source_id: GaiaId,
     pub coords: SkyCoords,
@@ -421,6 +450,37 @@ impl CrossmatchStar {
         })
     }
 
+    pub fn from_tyc_supplement_accessor(
+        accessor: &RecordAccessor,
+        ordinals: &TycSupplementOrdinals,
+    ) -> Result<Self, AppError> {
+        let tyc1 = accessor.read_i64(ordinals.tyc1)?.ok_or_else(|| AppError::missing_id("tyc1"))?;
+        let tyc2 = accessor.read_i64(ordinals.tyc2)?.ok_or_else(|| AppError::missing_id("tyc2"))?;
+        let tyc3 = accessor.read_i64(ordinals.tyc3)?.ok_or_else(|| AppError::missing_id("tyc3"))?;
+        let id_tycho = tyc1 * 1000000 + tyc2 * 10 + tyc3;
+        Ok(Self {
+            id: id_tycho,
+            coords: SkyCoords {
+                ra: accessor.read_f64(ordinals.ra_deg)?,
+                dec: accessor.read_f64(ordinals.de_deg)?,
+            },
+            hp_mag: f64::NAN,
+            parallax: f64::NAN,
+            bt_mag: accessor
+                .read_f32(ordinals.bt_mag)
+                .or_else(|_| accessor.read_f64(ordinals.bt_mag).map(|x| x as f32))?,
+            vt_mag: accessor
+                .read_f32(ordinals.vt_mag)
+                .or_else(|_| accessor.read_f64(ordinals.vt_mag).map(|x| x as f32))?,
+            epoch_ra: ordinals
+                .ep_ra1990
+                .map_or(Ok(1.25), |ord| accessor.read_f32(ord))?,
+            epoch_dec: ordinals
+                .ep_de1990
+                .map_or(Ok(1.25), |ord| accessor.read_f32(ord))?,
+        })
+    }
+
     pub fn merge(&mut self, other: &CrossmatchStar) {
         if self.id <= other.id {
             if f64::is_nan(self.hp_mag) {
@@ -592,6 +652,33 @@ impl Crossmatcher {
                 .tyc2hip
                 .get(&TycId(tyc_star.id))
                 .map_or(tyc_star.id, |h| h.0 as i64);
+            assert!(tyc_id > 0);
+            let gaia_star = GaiaStar::from_accessor(&accessor, &gaia_ordinals)?;
+            let gaia_id = gaia_star.source_id;
+            let score = tyc_star.score(&gaia_star);
+
+            self.crossmatch_stars
+                .entry(tyc_id)
+                .and_modify(|e| e.merge(&tyc_star))
+                .or_insert(tyc_star);
+            self.gaia_stars.insert(gaia_id, gaia_star);
+            self.matches.push((tyc_id, gaia_id, score));
+        }
+
+        Ok(())
+    }
+
+    pub fn add_tyc_supplement(&mut self, mut reader: VotableReader<impl Read>) -> Result<(), AppError> {
+        let tyc_supplement_ordinals = TycSupplementOrdinals::from_reader(&reader)?;
+        let gaia_ordinals = GaiaOrdinals::from_reader(&reader)?;
+
+        while let Some(accessor) = reader.read()? {
+            let tyc_star = CrossmatchStar::from_tyc_supplement_accessor(&accessor, &tyc_supplement_ordinals)?;
+            let tyc_id = self
+                .tyc2hip
+                .get(&TycId(tyc_star.id))
+                .map_or(tyc_star.id, |h| h.0 as i64);
+            assert!(tyc_id > 0);
             let gaia_star = GaiaStar::from_accessor(&accessor, &gaia_ordinals)?;
             let gaia_id = gaia_star.source_id;
             let score = tyc_star.score(&gaia_star);

@@ -92,7 +92,7 @@ fn full_crossmatch(
             );
             let file = File::open(entry_path)?;
             let reader = VotableReader::new(file)?;
-            crossmatcher.add_tyc(reader)?;
+            crossmatcher.add_tyc_supplement(reader)?;
         }
     }
 
