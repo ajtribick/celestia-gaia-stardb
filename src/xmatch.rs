@@ -314,7 +314,7 @@ lazy_static! {
             Some("Magnitude[Mag]"),
             Some("em.opt.V;phot.mag"),
             "Tycho-2 VT magnitude",
-            |s| s.bt_mag
+            |s| s.vt_mag
         ),
         FieldInfo::float(
             "ep_ra1990",
