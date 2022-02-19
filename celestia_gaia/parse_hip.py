@@ -192,7 +192,7 @@ def process_hip(data: Table) -> Table:
         table_names=['gaia', 'hip1'],
     )
 
-    for hip1_col in [c for c in data.colnames]:
+    for hip1_col in list(data.colnames):
         if not hip1_col.endswith('_hip1'):
             continue
         base_col = hip1_col[:-5]

@@ -140,7 +140,7 @@ def metalstar(): return Optional(noprefixstar), OneOrMore(metalsection)
 
 def cclass(): return ['C-R', 'C-N', 'C-J', 'C-Hd', 'C-H'], uncertain
 def scclass(): return ['SC', 'S', cclass, 'C', 'R', 'N']
-def scsuffix(): return ['J', 'H', 'Hd']
+def scsuffix(): return ['R', 'N', 'J', 'Hd', 'H']
 def scrange():
     return [
         (numeric, '-', Optional(numeric)),
@@ -160,6 +160,8 @@ def scstar(): return Optional(prefix), sctype, spacer, Optional(lumtype)
 def wdclass(): return ['DA', 'DB', 'DC', 'DO', 'DZ', 'DQ', 'DX', 'D']
 def wdstar():
     return [
+        'WD',
+        'wd',
         (wdclass, numeric, Optional(rangesym, numeric)),
         (wdclass, Optional(rangesym, wdclass)),
     ]
@@ -302,7 +304,7 @@ class SpecVisitor(PTNodeVisitor):
         else:
             selected = first_section
 
-        if selected[2] is None:
+        if selected[2] == CelLumClass.UNKNOWN:
             return selected[0], selected[1], overall_lclass
         return selected
 
@@ -355,6 +357,9 @@ class SpecVisitor(PTNodeVisitor):
         return CelMkClass[scclass], scsubclass, lclass
 
     def visit_wdstar(self, node, children):
+        if children[0] in ('WD', 'wd'):
+            return CelMkClass.D, CEL_UNKNOWN_SUBCLASS
+
         try:
             wdclass = CelMkClass[children.wdclass[0]]
         except KeyError:
@@ -377,7 +382,23 @@ class SpecVisitor(PTNodeVisitor):
 
 PARSER = ParserPython(spectrum, skipws=False)
 VISITOR = SpecVisitor()
-MULTISEPARATOR = re.compile(r'\+\ *(?:\.{2,}|(?:\(?(?:sd|d|g|c|k|h|m|g|He)?[OBAFGKM]|W[DNOCR]|wd))')
+MULTISEPARATOR = re.compile(
+    r'''
+        \+\ *                            # plus sign followed by spaces
+        (?:
+            \.{2,}                       # ellipsis
+            |
+            (?:
+                \(?
+                (?:sd|d|g|c|k|h|m|g|He)? # luminosity or A-star prefix
+                [OBAFGKM]|W[DNOCR]|wd    # normal spectrum
+            )
+            |
+            (?:0(?!\.))                  # typo of 0 for O, exclude fractions
+        )
+    ''',
+    re.VERBOSE,
+)
 
 def parse_spectrum(sptype: str) -> int:
     """Parse a spectral type string into a Celestia spectral type."""
