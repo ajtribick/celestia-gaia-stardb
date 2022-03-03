@@ -1,5 +1,5 @@
-Gaia EDR3 for celestia.Sci/Celestia
-==================================
+Gaia EDR3 for Celestia/celestia.Sci
+===================================
 
 This repository contains Python scripts to generate a celestia.Sci/Celestia
 star database from the *Gaia* Data Release 2 data, supplemented by the XHIP
@@ -7,7 +7,7 @@ catalogue.
 
 In order to limit the download size required and to maintain compatibility
 with the use of HIP/TYC2 identifiers as the primary key for stars in
-celestia.Sci/Celestia, only Gaia data for HIP and TYC2 stars is processed.
+Celestia/celestia.Sci, only Gaia data for HIP and TYC2 stars is processed.
 
 **Unless you are editing the code, it is recommended to use the pre-built
 files in the release rather than running these scripts manually.** The data
