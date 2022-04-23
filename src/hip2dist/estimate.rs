@@ -25,7 +25,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use crossbeam_channel::{Receiver, Sender};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use rand::distributions::{Distribution, Uniform};
 use statrs::{distribution::Normal, function::erf};
 
@@ -39,10 +39,8 @@ use crate::error::AppError;
 const MCMC_SAMPLES: usize = 50000;
 const BURN_IN_SAMPLES: usize = MCMC_SAMPLES / 10;
 
-lazy_static! {
-    static ref LOWER_POS: f64 = 0.5 * (1.0 + erf::erf(-FRAC_1_SQRT_2));
-    static ref UPPER_POS: f64 = 0.5 * (1.0 + erf::erf(FRAC_1_SQRT_2));
-}
+static LOWER_POS: Lazy<f64> = Lazy::new(|| 0.5 * (1.0 + erf::erf(-FRAC_1_SQRT_2)));
+static UPPER_POS: Lazy<f64> = Lazy::new(|| 0.5 * (1.0 + erf::erf(FRAC_1_SQRT_2)));
 
 fn percentile(samples: &[f64], position: f64) -> f64 {
     // Find percentile in sorted set, interpolating if necessary

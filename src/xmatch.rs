@@ -21,7 +21,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
 use crate::astro::{GaiaId, HipId, ProperMotion, SkyCoords, Squarable, TycId, MAS_TO_DEG};
 use crate::error::AppError;
@@ -171,167 +171,166 @@ struct CrossmatchStar {
     pub epoch_dec: f32,
 }
 
-lazy_static! {
-    static ref GAIA_FIELDS: [FieldInfo<GaiaStar>; 15] = [
-        FieldInfo::long(
-            "source_id",
-            None,
-            Some("meta.id"),
-            "Unique source identifier (unique within a particular Data Release",
-            |g| Some(g.source_id.0)
-        ),
-        FieldInfo::double(
-            "ra",
-            Some("deg"),
-            Some("pos.eq.ra;meta.main"),
-            "Right ascension",
-            |g| g.coords.ra
-        ),
-        FieldInfo::double(
-            "dec",
-            Some("deg"),
-            Some("pos.eq.dec;meta.main"),
-            "Declination",
-            |g| g.coords.dec
-        ),
-        FieldInfo::double(
-            "parallax",
-            Some("mas"),
-            Some("pos.parallax.trig"),
-            "Parallax",
-            |g| g.parallax
-        ),
-        FieldInfo::float(
-            "parallax_error",
-            Some("mas"),
-            Some("stat.error;pos.parallax.trig"),
-            "Standard error of parallax",
-            |g| g.parallax_error
-        ),
-        FieldInfo::float(
-            "dr2_radial_velocity",
-            Some("km.s**-1"),
-            Some("spect.dopplerVeloc.opt;em.opt.I"),
-            "Radial velocity from Gaia DR2",
-            |g| g.rv
-        ),
-        FieldInfo::double(
-            "ref_epoch",
-            Some("yr"),
-            Some("meta.ref;time.epoch"),
-            "Reference epoch",
-            |g| g.epoch
-        ),
-        FieldInfo::double(
-            "pmra",
-            Some("mas.yr**-1"),
-            Some("pos.pm;pos.eq.ra"),
-            "Proper motion in right ascension direction",
-            |g| g.pm.pm_ra
-        ),
-        FieldInfo::float(
-            "pmra_error",
-            Some("mas.yr**-1"),
-            Some("stat.error;pos.pm;pos.eq.ra"),
-            "Standard error of proper motion in right ascension direction",
-            |g| g.e_pm.pm_ra
-        ),
-        FieldInfo::double(
-            "pmdec",
-            Some("mas.yr**-1"),
-            Some("pos.pm;pos.eq.dec"),
-            "Proper motion in declination direction",
-            |g| g.pm.pm_dec
-        ),
-        FieldInfo::float(
-            "pmdec_error",
-            Some("mas.yr**-1"),
-            Some("stat.error;pos.pm;pos.eq.dec"),
-            "Standard error of proper motion in declination direction",
-            |g| g.e_pm.pm_dec
-        ),
-        FieldInfo::float(
-            "phot_g_mean_mag",
-            Some("mag"),
-            Some("phot.mag;em.opt"),
-            "G-band mean magnitude",
-            |g| g.phot_g_mean_mag
-        ),
-        FieldInfo::float(
-            "phot_bp_mean_mag",
-            Some("mag"),
-            Some("phot.mag;em.opt.B"),
-            "Integrated BP mean magnitude",
-            |g| g.phot_bp_mean_mag
-        ),
-        FieldInfo::float(
-            "phot_rp_mean_mag",
-            Some("mag"),
-            Some("phot.mag;em.opt.R"),
-            "Integrated RP mean magnitude",
-            |g| g.phot_rp_mean_mag
-        ),
-        FieldInfo::short(
-            "astrometric_params_solved",
-            None,
-            Some("meta.number"),
-            "Which parameters have been solved for?",
-            |g| Some(g.astrometric_params_solved)
-        ),
-    ];
-    static ref CROSSMATCH_FIELDS: [FieldInfo<CrossmatchStar>; 8] = [
-        FieldInfo::long("id", None, None, "Celestia identifier", |s| Some(s.id)),
-        FieldInfo::double(
-            "src_ra",
-            Some("Angle[deg]"),
-            Some("pos.eq.ra;meta.main"),
-            "Right Ascension in ICRS, Ep=1991.25",
-            |s| s.coords.ra
-        ),
-        FieldInfo::double(
-            "src_dec",
-            Some("Angle[deg]"),
-            Some("pos.eq.dec;meta.main"),
-            "Declination in ICRS, Ep=1991.25",
-            |s| s.coords.dec
-        ),
-        FieldInfo::double(
-            "hp_mag",
-            Some("Magnitude[Mag]"),
-            None,
-            "Hipparcos magnitude",
-            |s| s.hp_mag
-        ),
-        FieldInfo::float(
-            "bt_mag",
-            Some("Magnitude[Mag]"),
-            Some("em.opt.B;phot.mag"),
-            "Tycho-2 BT magnitude",
-            |s| s.bt_mag
-        ),
-        FieldInfo::float(
-            "vt_mag",
-            Some("Magnitude[Mag]"),
-            Some("em.opt.V;phot.mag"),
-            "Tycho-2 VT magnitude",
-            |s| s.vt_mag
-        ),
-        FieldInfo::float(
-            "ep_ra1990",
-            Some("Time[year]"),
-            Some("time.epoch"),
-            "Epoch--1990 of raDeg",
-            |g| g.epoch_ra
-        ),
-        FieldInfo::float(
-            "ep_de1990",
-            Some("Time[year]"),
-            Some("time.epoch"),
-            "Epoch--1990 of deDeg",
-            |g| g.epoch_dec
-        ),
-    ];
-}
+static GAIA_FIELDS: Lazy<[FieldInfo<GaiaStar>; 15]> = Lazy::new(|| [
+    FieldInfo::long(
+        "source_id",
+        None,
+        Some("meta.id"),
+        "Unique source identifier (unique within a particular Data Release",
+        |g| Some(g.source_id.0)
+    ),
+    FieldInfo::double(
+        "ra",
+        Some("deg"),
+        Some("pos.eq.ra;meta.main"),
+        "Right ascension",
+        |g| g.coords.ra
+    ),
+    FieldInfo::double(
+        "dec",
+        Some("deg"),
+        Some("pos.eq.dec;meta.main"),
+        "Declination",
+        |g| g.coords.dec
+    ),
+    FieldInfo::double(
+        "parallax",
+        Some("mas"),
+        Some("pos.parallax.trig"),
+        "Parallax",
+        |g| g.parallax
+    ),
+    FieldInfo::float(
+        "parallax_error",
+        Some("mas"),
+        Some("stat.error;pos.parallax.trig"),
+        "Standard error of parallax",
+        |g| g.parallax_error
+    ),
+    FieldInfo::float(
+        "dr2_radial_velocity",
+        Some("km.s**-1"),
+        Some("spect.dopplerVeloc.opt;em.opt.I"),
+        "Radial velocity from Gaia DR2",
+        |g| g.rv
+    ),
+    FieldInfo::double(
+        "ref_epoch",
+        Some("yr"),
+        Some("meta.ref;time.epoch"),
+        "Reference epoch",
+        |g| g.epoch
+    ),
+    FieldInfo::double(
+        "pmra",
+        Some("mas.yr**-1"),
+        Some("pos.pm;pos.eq.ra"),
+        "Proper motion in right ascension direction",
+        |g| g.pm.pm_ra
+    ),
+    FieldInfo::float(
+        "pmra_error",
+        Some("mas.yr**-1"),
+        Some("stat.error;pos.pm;pos.eq.ra"),
+        "Standard error of proper motion in right ascension direction",
+        |g| g.e_pm.pm_ra
+    ),
+    FieldInfo::double(
+        "pmdec",
+        Some("mas.yr**-1"),
+        Some("pos.pm;pos.eq.dec"),
+        "Proper motion in declination direction",
+        |g| g.pm.pm_dec
+    ),
+    FieldInfo::float(
+        "pmdec_error",
+        Some("mas.yr**-1"),
+        Some("stat.error;pos.pm;pos.eq.dec"),
+        "Standard error of proper motion in declination direction",
+        |g| g.e_pm.pm_dec
+    ),
+    FieldInfo::float(
+        "phot_g_mean_mag",
+        Some("mag"),
+        Some("phot.mag;em.opt"),
+        "G-band mean magnitude",
+        |g| g.phot_g_mean_mag
+    ),
+    FieldInfo::float(
+        "phot_bp_mean_mag",
+        Some("mag"),
+        Some("phot.mag;em.opt.B"),
+        "Integrated BP mean magnitude",
+        |g| g.phot_bp_mean_mag
+    ),
+    FieldInfo::float(
+        "phot_rp_mean_mag",
+        Some("mag"),
+        Some("phot.mag;em.opt.R"),
+        "Integrated RP mean magnitude",
+        |g| g.phot_rp_mean_mag
+    ),
+    FieldInfo::short(
+        "astrometric_params_solved",
+        None,
+        Some("meta.number"),
+        "Which parameters have been solved for?",
+        |g| Some(g.astrometric_params_solved)
+    ),
+]);
+
+static CROSSMATCH_FIELDS: Lazy<[FieldInfo<CrossmatchStar>; 8]> = Lazy::new(|| [
+    FieldInfo::long("id", None, None, "Celestia identifier", |s| Some(s.id)),
+    FieldInfo::double(
+        "src_ra",
+        Some("Angle[deg]"),
+        Some("pos.eq.ra;meta.main"),
+        "Right Ascension in ICRS, Ep=1991.25",
+        |s| s.coords.ra
+    ),
+    FieldInfo::double(
+        "src_dec",
+        Some("Angle[deg]"),
+        Some("pos.eq.dec;meta.main"),
+        "Declination in ICRS, Ep=1991.25",
+        |s| s.coords.dec
+    ),
+    FieldInfo::double(
+        "hp_mag",
+        Some("Magnitude[Mag]"),
+        None,
+        "Hipparcos magnitude",
+        |s| s.hp_mag
+    ),
+    FieldInfo::float(
+        "bt_mag",
+        Some("Magnitude[Mag]"),
+        Some("em.opt.B;phot.mag"),
+        "Tycho-2 BT magnitude",
+        |s| s.bt_mag
+    ),
+    FieldInfo::float(
+        "vt_mag",
+        Some("Magnitude[Mag]"),
+        Some("em.opt.V;phot.mag"),
+        "Tycho-2 VT magnitude",
+        |s| s.vt_mag
+    ),
+    FieldInfo::float(
+        "ep_ra1990",
+        Some("Time[year]"),
+        Some("time.epoch"),
+        "Epoch--1990 of raDeg",
+        |g| g.epoch_ra
+    ),
+    FieldInfo::float(
+        "ep_de1990",
+        Some("Time[year]"),
+        Some("time.epoch"),
+        "Epoch--1990 of deDeg",
+        |g| g.epoch_dec
+    ),
+]);
 
 impl GaiaStar {
     fn from_accessor(accessor: &RecordAccessor, ordinals: &GaiaOrdinals) -> Result<Self, AppError> {
