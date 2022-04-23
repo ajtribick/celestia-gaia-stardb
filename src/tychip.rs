@@ -24,15 +24,15 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
-use arrayvec::ArrayVec;
 use flate2::read::GzDecoder;
+use tinyvec::ArrayVec;
 
 use crate::astro::{HipId, TycId};
 use crate::error::AppError;
 use crate::votable::VotableReader;
 
 #[derive(Debug)]
-struct TycComponent(TycId, ArrayVec<u8, 2>);
+struct TycComponent(TycId, ArrayVec<[u8; 2]>);
 
 #[derive(Debug)]
 struct TycHipMap(HashMap<HipId, TycComponent>);
@@ -42,7 +42,7 @@ impl TycHipMap {
         Self(HashMap::new())
     }
 
-    fn add(&mut self, hip: HipId, tyc: TycId, cmp: ArrayVec<u8, 2>) {
+    fn add(&mut self, hip: HipId, tyc: TycId, cmp: ArrayVec<[u8; 2]>) {
         match self.0.entry(hip) {
             Entry::Vacant(v) => {
                 v.insert(TycComponent(tyc, cmp));

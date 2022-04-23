@@ -24,13 +24,13 @@ use std::mem;
 use std::num::NonZeroUsize;
 use std::str;
 
-use arrayvec::ArrayVec;
 use bitvec::prelude::*;
 use byteorder::{BigEndian, ReadBytesExt};
 use flate2::read::GzDecoder;
 use quick_xml::events::attributes::Attributes;
 use quick_xml::events::Event;
 use quick_xml::Reader as XmlReader;
+use tinyvec::ArrayVec;
 
 use super::{DataType, VOTABLE_NS};
 
@@ -329,7 +329,7 @@ impl<'a> RecordAccessor<'a> {
     pub fn read_string<const CAP: usize>(
         &self,
         ordinal: usize,
-    ) -> Result<ArrayVec<u8, CAP>, AppError> {
+    ) -> Result<ArrayVec<[u8; CAP]>, AppError> {
         let field_type = self.field_types[ordinal];
         if !matches!(field_type, DataType::Char | DataType::String(_)) {
             return Err(AppError::field_type(

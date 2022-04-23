@@ -41,8 +41,8 @@ pub enum AppError {
     InvalidInt(ParseIntError),
     InvalidUtf8(Utf8Error),
     Io(io::Error),
+    SliceConversion(tinyvec::TryFromSliceError),
     Xml(quick_xml::Error),
-    Capacity(arrayvec::CapacityError),
     Other(Box<dyn error::Error + Send>),
     Thread(Box<dyn Any + Send + 'static>),
 }
@@ -80,8 +80,8 @@ impl fmt::Display for AppError {
             Self::InvalidInt(_) => f.write_str("Failed to parse int"),
             Self::InvalidUtf8(_) => f.write_str("Invalid UTF-8"),
             Self::Io(_) => f.write_str("IO Error"),
+            Self::SliceConversion(_) => f.write_str("Could not convert slice"),
             Self::Xml(_) => f.write_str("XML Error"),
-            Self::Capacity(_) => f.write_str("Capacity error"),
             Self::Other(_) => f.write_str("Error occurred"),
             Self::Thread(e) => write!(f, "Thread error {:?}", e),
         }
@@ -95,8 +95,8 @@ impl error::Error for AppError {
             Self::InvalidInt(e) => Some(e),
             Self::InvalidUtf8(e) => Some(e),
             Self::Io(e) => Some(e),
+            // Self::SliceConversion(e) => Some(e), - doesn't implement the Error trait
             Self::Xml(e) => Some(e),
-            Self::Capacity(e) => Some(e),
             Self::Other(e) => Some(e.as_ref()),
             _ => None,
         }
@@ -127,6 +127,12 @@ impl From<ParseIntError> for AppError {
     }
 }
 
+impl From<tinyvec::TryFromSliceError> for AppError {
+    fn from(e: tinyvec::TryFromSliceError) -> Self {
+        Self::SliceConversion(e)
+    }
+}
+
 impl From<Utf8Error> for AppError {
     fn from(e: Utf8Error) -> Self {
         Self::InvalidUtf8(e)
@@ -136,12 +142,6 @@ impl From<Utf8Error> for AppError {
 impl From<quick_xml::Error> for AppError {
     fn from(e: quick_xml::Error) -> Self {
         Self::Xml(e)
-    }
-}
-
-impl From<arrayvec::CapacityError> for AppError {
-    fn from(e: arrayvec::CapacityError) -> Self {
-        Self::Capacity(e)
     }
 }
 
