@@ -95,7 +95,7 @@ impl error::Error for AppError {
             Self::InvalidInt(e) => Some(e),
             Self::InvalidUtf8(e) => Some(e),
             Self::Io(e) => Some(e),
-            // Self::SliceConversion(e) => Some(e), - doesn't implement the Error trait
+            Self::SliceConversion(e) => Some(e),
             Self::Xml(e) => Some(e),
             Self::Other(e) => Some(e.as_ref()),
             _ => None,

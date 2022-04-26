@@ -26,4 +26,4 @@ pyo3 = {version="0.15.1", features=["extension-module"]}
 quick-xml = "0.22.0"
 rand = "0.8.4"
 statrs = "0.15"
-tinyvec = {version="1.5", features=["rustc_1_55"]}
+tinyvec = {version="1.6", features=["rustc_1_55", "std"]}
