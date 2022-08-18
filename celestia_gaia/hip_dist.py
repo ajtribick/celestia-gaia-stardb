@@ -55,9 +55,9 @@ def apply_healpix() -> None:
             ['HIP', 'RAdeg', 'DEdeg', 'Plx', 'e_Plx']
         )
 
-    hp = HEALPix(nside=1<<5, order='nested')
+    healpix = HEALPix(nside=1<<5, order='nested')
     data['healpix'] = np.apply_along_axis(
-        lambda ra_dec: hp.lonlat_to_healpix(ra_dec[0]*u.deg, ra_dec[1]*u.deg),
+        lambda ra_dec: healpix.lonlat_to_healpix(ra_dec[0]*u.deg, ra_dec[1]*u.deg),
         0,
         [data['RAdeg'], data['DEdeg']]
     )

@@ -361,9 +361,9 @@ FROM
     position = 0
     part = 1
     for f in GAIA_EDR3_DIR.glob('gaiaedr3-distance-*.vot.gz'):
-        p = int(f.name.removeprefix('gaiaedr3-distance-').removesuffix('.vot.gz'))
-        if p >= part:
-            part = p + 1
+        fpart = int(f.name.removeprefix('gaiaedr3-distance-').removesuffix('.vot.gz'))
+        if fpart >= part:
+            part = fpart + 1
 
     p = 1
     num_parts = (len(source_ids)+chunk_size-1) // chunk_size

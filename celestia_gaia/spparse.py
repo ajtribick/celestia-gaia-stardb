@@ -177,7 +177,7 @@ def spectrum():
 class SpecVisitor(PTNodeVisitor):
     """Parse tree visitor to compute Celestia spectral type."""
 
-    # pylint: disable=unused-argument,no-self-use,redefined-outer-name,too-many-public-methods
+    # pylint: disable=unused-argument,redefined-outer-name,too-many-public-methods
 
     def visit_spacer(self, node, children):
         return None
