@@ -17,14 +17,14 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::borrow::Cow;
-use std::fs::File;
-use std::io::{self, BufReader, BufWriter, ErrorKind, Write};
-use std::path::Path;
+use std::{
+    borrow::Cow,
+    fs::File,
+    io::{self, BufReader, BufWriter, ErrorKind, Write},
+    path::Path,
+};
 
-use crate::astro::HipId;
-use crate::csv::CsvReader;
-use crate::error::AppError;
+use crate::{astro::HipId, csv::CsvReader, error::AppError};
 
 mod distributions;
 mod estimate;

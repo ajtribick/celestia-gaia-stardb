@@ -17,19 +17,19 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::cmp;
-use std::collections::HashMap;
-use std::io::{self, BufRead, BufReader, ErrorKind, Read};
-use std::mem;
-use std::num::NonZeroUsize;
-use std::str;
+use std::{
+    cmp,
+    collections::HashMap,
+    io::{self, BufRead, BufReader, ErrorKind, Read},
+    mem,
+    num::NonZeroUsize,
+    str,
+};
 
 use bitvec::prelude::*;
 use byteorder::{BigEndian, ReadBytesExt};
 use flate2::read::GzDecoder;
-use quick_xml::events::attributes::Attributes;
-use quick_xml::events::Event;
-use quick_xml::Reader as XmlReader;
+use quick_xml::{events::attributes::Attributes, events::Event, Reader as XmlReader};
 use tinyvec::ArrayVec;
 
 use super::{DataType, VOTABLE_NS};
@@ -137,7 +137,7 @@ impl<R: Read> VotableReader<R> {
 
         let mask_width = (field_offsets.len() + 7) / 8;
 
-        let buf_reader = xml_reader.into_underlying_reader();
+        let buf_reader = xml_reader.into_inner();
         let reader = Binary2Reader::new(buf_reader);
 
         Ok(Self {
@@ -236,7 +236,7 @@ impl<R: Read> VotableReader<R> {
 }
 
 pub struct RecordAccessor<'a> {
-    mask: &'a BitSlice<Msb0, u8>,
+    mask: &'a BitSlice<u8, Msb0>,
     field_types: &'a [DataType],
     field_offsets: &'a [usize],
     data: &'a [u8],

@@ -17,14 +17,18 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::cmp;
-use std::io::{self, ErrorKind, Write};
-use std::mem;
+use std::{
+    cmp,
+    io::{self, ErrorKind, Write},
+    mem,
+};
 
 use bitvec::prelude::*;
 use byteorder::{BigEndian, WriteBytesExt};
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
-use quick_xml::Writer;
+use quick_xml::{
+    events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
+    Writer,
+};
 
 use super::{FieldGetter, FieldInfo};
 
@@ -33,7 +37,7 @@ use crate::error::AppError;
 pub struct VotableWriter<W: Write> {
     writer: Option<Writer<W>>,
     data_writer: Option<Base64Writer<W>>,
-    mask_data: BitVec<Msb0, u8>,
+    mask_data: BitVec<u8, Msb0>,
     field_data: Vec<u8>,
     field_count: usize,
     min_length: usize,

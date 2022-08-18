@@ -17,9 +17,7 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::f64;
-use std::hash::Hash;
-use std::ops;
+use std::{f64, hash::Hash, ops};
 
 use nalgebra::vector;
 

@@ -17,19 +17,22 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::borrow::Cow;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    collections::{hash_map::Entry, HashMap},
+    fs::File,
+    io::{BufRead, BufReader},
+    path::{Path, PathBuf},
+};
 
 use flate2::read::GzDecoder;
 use tinyvec::ArrayVec;
 
-use crate::astro::{HipId, TycId};
-use crate::error::AppError;
-use crate::votable::VotableReader;
+use crate::{
+    astro::{HipId, TycId},
+    error::AppError,
+    votable::VotableReader,
+};
 
 #[derive(Debug)]
 struct TycComponent(TycId, ArrayVec<[u8; 2]>);

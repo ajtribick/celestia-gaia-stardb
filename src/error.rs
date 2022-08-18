@@ -17,16 +17,15 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::any::Any;
-use std::borrow::Cow;
-use std::error;
-use std::fmt;
-use std::io;
-use std::num::{ParseFloatError, ParseIntError};
-use std::str::Utf8Error;
+use std::{
+    any::Any,
+    borrow::Cow,
+    error, fmt, io,
+    num::{ParseFloatError, ParseIntError},
+    str::Utf8Error,
+};
 
-use pyo3::exceptions::PyRuntimeError;
-use pyo3::PyErr;
+use pyo3::{exceptions::PyRuntimeError, PyErr};
 
 use super::votable::DataType;
 
@@ -142,6 +141,12 @@ impl From<Utf8Error> for AppError {
 impl From<quick_xml::Error> for AppError {
     fn from(e: quick_xml::Error) -> Self {
         Self::Xml(e)
+    }
+}
+
+impl From<quick_xml::events::attributes::AttrError> for AppError {
+    fn from(e: quick_xml::events::attributes::AttrError) -> Self {
+        Self::Xml(e.into())
     }
 }
 

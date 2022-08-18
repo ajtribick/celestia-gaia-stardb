@@ -17,24 +17,26 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::f64::consts::FRAC_1_SQRT_2;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, ErrorKind};
-use std::path::Path;
-use std::sync::Arc;
-use std::thread::{self, JoinHandle};
+use std::{
+    f64::consts::FRAC_1_SQRT_2,
+    fs::File,
+    io::{self, BufRead, BufReader, ErrorKind},
+    path::Path,
+    sync::Arc,
+    thread::{self, JoinHandle},
+};
 
 use crossbeam_channel::{Receiver, Sender};
 use once_cell::sync::Lazy;
 use rand::distributions::{Distribution, Uniform};
 use statrs::{distribution::Normal, function::erf};
 
-use super::distributions::{edsd_mode, geometric_posterior};
-use super::{DistanceInfo, HipInfo, PriorInfo};
+use super::{
+    distributions::{edsd_mode, geometric_posterior},
+    DistanceInfo, HipInfo, PriorInfo,
+};
 
-use crate::astro::HipId;
-use crate::csv::CsvReader;
-use crate::error::AppError;
+use crate::{astro::HipId, csv::CsvReader, error::AppError};
 
 const MCMC_SAMPLES: usize = 50000;
 const BURN_IN_SAMPLES: usize = MCMC_SAMPLES / 10;

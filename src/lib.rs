@@ -17,11 +17,13 @@
 * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-use std::fs::{read_dir, File};
-use std::iter::FromIterator;
-use std::path::Path;
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    fs::{read_dir, File},
+    iter::FromIterator,
+    path::Path,
+};
 
 use flate2::{write::GzEncoder, Compression};
 use globset::Glob;
@@ -36,11 +38,10 @@ mod tychip;
 mod votable;
 mod xmatch;
 
-use crate::error::AppError;
-use crate::hip2dist::estimate_distances;
-use crate::tychip::load_tyc2hip;
-use crate::votable::VotableReader;
-use crate::xmatch::Crossmatcher;
+use crate::{
+    error::AppError, hip2dist::estimate_distances, tychip::load_tyc2hip, votable::VotableReader,
+    xmatch::Crossmatcher,
+};
 
 const HIP1_PATTERN: &str = "**/gaiaedr3-hip1.vot.gz";
 const HIP2_PATTERN: &str = "**/gaiaedr3-hip2-*.vot.gz";

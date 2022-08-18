@@ -1,7 +1,7 @@
 [package]
 name = "celestia_gaia"
 authors = ["Andrew Tribick <ajtribick@googlemail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,18 +12,18 @@ crate-type = ["cdylib"]
 
 [dependencies]
 base64 = "0.13.0"
-bitvec = "0.22.3"
-byteorder = "1.4"
-crossbeam-channel = "0.5.1"
-flate2 = "1.0"
-globset = "0.4.8"
-memchr = "2.4"
+bitvec = "1.0.1"
+byteorder = "1.4.3"
+crossbeam-channel = "0.5.6"
+flate2 = "1.0.24"
+globset = "0.4.9"
+memchr = "2.5.0"
 nalgebra = "0.27.1"
-numpy = "0.15.0"
-num_cpus = "1.13"
-once_cell = "1.10"
-pyo3 = {version="0.15.1", features=["extension-module"]}
-quick-xml = "0.22.0"
-rand = "0.8.4"
-statrs = "0.15"
-tinyvec = {version="1.6", features=["rustc_1_55", "std"]}
+numpy = "0.16.2"
+num_cpus = "1.13.1"
+once_cell = "1.13.1"
+pyo3 = {version="0.16.5", features=["extension-module"]}
+quick-xml = "0.23.0"
+rand = "0.8.5"
+statrs = "0.15.0"
+tinyvec = {version="1.6.0", features=["rustc_1_55", "std"]}
