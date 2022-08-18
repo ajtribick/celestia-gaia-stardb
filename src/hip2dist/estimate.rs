@@ -27,9 +27,9 @@ use std::{
 };
 
 use crossbeam_channel::{Receiver, Sender};
+use libm::erf;
 use once_cell::sync::Lazy;
-use rand::distributions::{Distribution, Uniform};
-use statrs::{distribution::Normal, function::erf};
+use rand_distr::{Distribution, Normal, Uniform};
 
 use super::{
     distributions::{edsd_mode, geometric_posterior},
@@ -41,8 +41,8 @@ use crate::{astro::HipId, csv::CsvReader, error::AppError};
 const MCMC_SAMPLES: usize = 50000;
 const BURN_IN_SAMPLES: usize = MCMC_SAMPLES / 10;
 
-static LOWER_POS: Lazy<f64> = Lazy::new(|| 0.5 * (1.0 + erf::erf(-FRAC_1_SQRT_2)));
-static UPPER_POS: Lazy<f64> = Lazy::new(|| 0.5 * (1.0 + erf::erf(FRAC_1_SQRT_2)));
+static LOWER_POS: Lazy<f64> = Lazy::new(|| 0.5 * (1.0 + erf(-FRAC_1_SQRT_2)));
+static UPPER_POS: Lazy<f64> = Lazy::new(|| 0.5 * (1.0 + erf(FRAC_1_SQRT_2)));
 
 fn percentile(samples: &[f64], position: f64) -> f64 {
     // Find percentile in sorted set, interpolating if necessary
