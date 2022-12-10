@@ -4,7 +4,7 @@ astropy==5.1
 astropy-healpix==0.6
 astroquery==0.4.6
 beautifulsoup4==4.11.1
-certifi==2022.6.15
+certifi==2022.12.7
 cffi==1.15.1
 charset-normalizer==2.1.0
 cryptography==37.0.4
