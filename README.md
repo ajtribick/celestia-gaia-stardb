@@ -17,9 +17,9 @@ files in the release may be used under a CC-BY-SA 4.0 license
 ## Prerequisites
 
 -  Internet connection for downloading the data
--  Python 3.7 or higher (preferably 64-bit, as the memory usage can be quite
-   high)
--  Rust 1.56 or later
+-  Python 3.11 or higher (preferably 64-bit, as the memory usage can be quite
+   high) with pipenv
+-  Rust 1.71 or later
 -  celestia.Sci/Celestia
 
 ## Folder contents
@@ -32,37 +32,29 @@ files in the release may be used under a CC-BY-SA 4.0 license
 Please ensure you have read through the Prerequisites section and all the
 steps below **before** you begin.
 
-1.  Clone or download this repository
-2.  Open a command window in the repository directory
-3.  Set up a Python 3 virtual environment
+1. Clone or download this repository
+2. Open a command window in the repository directory
+3. Restore the dependencies
 
-    `python3 -m venv myenv`
+   `pipenv install --dev`
 
-4.  Switch to the virtual environment and install the requirements
+4. Build the Rust code
 
-    `source myenv/bin/activate`
+   `maturin develop --release`
 
-5.  Install the requirements:
+5. Run the download script. **This step may take several hours!**
 
-    `python -m pip install -r requirements.txt`
+   `python download_data`
 
-6.  Build the Rust code
+6. Run the build script.
 
-    `maturin develop --release`
+   `python make_stardb`
 
-7.  Run the download script. **This step may take several hours!**
+7. The stars.dat, hdxindex.dat and saoxindex.dat files will be written into
+   the output folder
 
-    `python download_data`
-
-8.  Run the build script.
-
-    `python make_stardb`
-
-9.  The stars.dat, hdxindex.dat and saoxindex.dat files will be written into
-    the output folder
-
-10. Copy the files into the `data` folder of the celestia.Sci/Celestia
-    distribution.
+8. Copy the files into the `data` folder of the celestia.Sci/Celestia
+   distribution.
 
 ## References
 

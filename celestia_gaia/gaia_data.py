@@ -40,6 +40,7 @@ _MAX_MAG_DIFF = 4
 
 # --- DOWNLOAD CROSSMATCH CANDIDATES ---
 
+
 def _hip1_query(upload_name: str) -> str:
     return f"""SELECT
     h.hip, h.ra AS hip_ra, h.dec AS hip_dec, h.hp_mag,
@@ -83,7 +84,7 @@ WHERE
 
 def _tyc_query(start: int, end: int) -> str:
     id_start = start * 1000000
-    id_end = (end+1) * 1000000 - 1
+    id_end = (end + 1) * 1000000 - 1
     return f"""SELECT
     t.id_tycho, t.hip, t.cmp, t.ra_deg AS tyc_ra, t.de_deg AS tyc_dec,
     t.bt_mag, t.vt_mag, t.ep_ra1990, t.ep_de1990,
@@ -137,27 +138,27 @@ def _run_query(
         query,
         dump_to_file=True,
         output_file=output_file,
-        output_format='votable',
+        output_format="votable",
         upload_resource=upload_table,
         upload_table_name=upload_name,
         verbose=False,
         background=True,
     )
 
-    print(f'  Launched job id {job.jobid}')
-    delay=15
+    print(f"  Launched job id {job.jobid}")
+    delay = 15
     while True:
         phase = job.get_phase(update=True)
         if job.is_finished():
             break
-        print(f'  {phase}, waiting {delay} seconds')
+        print(f"  {phase}, waiting {delay} seconds")
         time.sleep(delay)
-        delay = min(delay*2, 120)
+        delay = min(delay * 2, 120)
 
-    print(f'  {phase}')
-    if phase != 'COMPLETED':
-        print(f'  {phase}: {job.get_error()}')
-        raise RuntimeError('Failed to download Gaia data')
+    print(f"  {phase}")
+    if phase != "COMPLETED":
+        print(f"  {phase}: {job.get_error()}")
+        raise RuntimeError("Failed to download Gaia data")
 
     job.save_results()
     Gaia.remove_jobs([job.jobid])
@@ -166,119 +167,145 @@ def _run_query(
 def download_gaia_hip2(ranges: MultiRange, chunk_size: int = 50000) -> None:
     """Download HIP2 data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
-        hip_file = GAIA_EDR3_DIR/f'gaiaedr3-hip2-{section.begin:06}-{section.end:06}.vot.gz'
+        hip_file = (
+            GAIA_EDR3_DIR / f"gaiaedr3-hip2-{section.begin:06}-{section.end:06}.vot.gz"
+        )
 
         query = _hip2_query(section.begin, section.end)
-        print(f'Querying HIP stars in range {section.begin} to {section.end}')
+        print(f"Querying HIP stars in range {section.begin} to {section.end}")
         _run_query(query, hip_file)
 
 
 def download_gaia_hip1() -> None:
     """Donwload HIP1 data from the Gaia archive."""
-    hip1_file = GAIA_EDR3_DIR/'gaiaedr3-hip1.vot.gz'
-    if (
-        hip1_file.exists()
-        and not confirm_action('Re-download HIP1 crossmatch?')
-    ):
+    hip1_file = GAIA_EDR3_DIR / "gaiaedr3-hip1.vot.gz"
+    if hip1_file.exists() and not confirm_action("Re-download HIP1 crossmatch?"):
         return
 
-    table = Table.read(GAIA_EDR3_DIR/'hip1_subset.vot.gz', format='votable')
-    table.remove_columns(['hd', 'b_v', 'e_b_v', 'v_i', 'e_v_i', 'sptype'])
+    table = Table.read(GAIA_EDR3_DIR / "hip1_subset.vot.gz", format="votable")
+    table.remove_columns(["hd", "b_v", "e_b_v", "v_i", "e_v_i", "sptype"])
 
     # Parse sexagesimal RA and Dec coordinates
-    table = table[np.logical_not(np.logical_or(table['rahms'].mask, table['dedms'].mask))]
-    table['rahms'] = table['rahms'].filled('')
-    table['dedms'] = table['dedms'].filled('')
+    table = table[
+        np.logical_not(np.logical_or(table["rahms"].mask, table["dedms"].mask))
+    ]
+    table["rahms"] = table["rahms"].filled("")
+    table["dedms"] = table["dedms"].filled("")
     pcoord = np.vectorize(_parse_coord)
-    table['ra'] = pcoord(table['rahms']) * 15.0
-    table['dec'] = pcoord(table['dedms'])
-    table.remove_columns(['rahms', 'dedms'])
+    table["ra"] = pcoord(table["rahms"]) * 15.0
+    table["dec"] = pcoord(table["dedms"])
+    table.remove_columns(["rahms", "dedms"])
 
     # Use Vmag as a proxy for Hpmag when Hpmag is missing
-    table = table[np.logical_not(np.logical_and(table['hpmag'].mask, table['vmag'].mask))]
-    table['hpmag'] = table['hpmag'].filled(table['vmag'].filled(np.nan))
-    table.remove_column('vmag')
-    table.rename_column('hpmag', 'hp_mag')
+    table = table[
+        np.logical_not(np.logical_and(table["hpmag"].mask, table["vmag"].mask))
+    ]
+    table["hpmag"] = table["hpmag"].filled(table["vmag"].filled(np.nan))
+    table.remove_column("vmag")
+    table.rename_column("hpmag", "hp_mag")
 
-    query = _hip1_query('hip1_subset')
-    _run_query(query, hip1_file, table, 'hip1_subset')
+    query = _hip1_query("hip1_subset")
+    _run_query(query, hip1_file, table, "hip1_subset")
 
 
 def download_gaia_tyctdsc(ranges: MultiRange, chunk_size: int = 200) -> None:
     """Download TYC/TDSC data from the Gaia archive."""
     for section in ranges.chunk_ranges(chunk_size):
         tyc_file = (
-            GAIA_EDR3_DIR/f'gaiaedr3-tyctdsc-{section.begin:04}-{section.end:04}.vot.gz'
+            GAIA_EDR3_DIR
+            / f"gaiaedr3-tyctdsc-{section.begin:04}-{section.end:04}.vot.gz"
         )
 
         query = _tyc_query(section.begin, section.end)
-        print(f'Querying TYC/TDSC stars in regions {section.begin} to {section.end}')
+        print(f"Querying TYC/TDSC stars in regions {section.begin} to {section.end}")
         _run_query(query, tyc_file)
 
 
 def download_gaia_tyc2_supplement1() -> None:
     """Download TYC2 Supplement 1 data from the Gaia archive."""
-    tyc2_supplement1_file = GAIA_EDR3_DIR/'gaiaedr3-tyc2suppl1.vot.gz'
-    if (
-        tyc2_supplement1_file.exists()
-        and not confirm_action('Re-download TYC2 supplement 1 crossmatch?')
+    tyc2_supplement1_file = GAIA_EDR3_DIR / "gaiaedr3-tyc2suppl1.vot.gz"
+    if tyc2_supplement1_file.exists() and not confirm_action(
+        "Re-download TYC2 supplement 1 crossmatch?"
     ):
         return
 
     reader = io_ascii.get_reader(
         io_ascii.Cds,
-        readme=str(VIZIER_DIR/'tyc2.readme'),
+        readme=str(VIZIER_DIR / "tyc2.readme"),
         include_names=[
-            'TYC1', 'TYC2', 'TYC3', 'RAdeg', 'DEdeg', 'pmRA', 'pmDE', 'BTmag', 'VTmag',
-            'HIP', 'CCDM',
+            "TYC1",
+            "TYC2",
+            "TYC3",
+            "RAdeg",
+            "DEdeg",
+            "pmRA",
+            "pmDE",
+            "BTmag",
+            "VTmag",
+            "HIP",
+            "CCDM",
         ],
     )
-    reader.data.table_name = 'suppl_1.dat'
-    with gzip.open(VIZIER_DIR/'tyc2suppl_1.dat.gz', 'rb') as gzf:
+    reader.data.table_name = "suppl_1.dat"
+    with gzip.open(VIZIER_DIR / "tyc2suppl_1.dat.gz", "rb") as gzf:
         table = reader.read(gzf)
 
     table.rename_columns(
         [
-            'TYC1', 'TYC2', 'TYC3',
-            'RAdeg', 'DEdeg', 'pmRA', 'pmDE',
-            'BTmag', 'VTmag',
-            'HIP', 'CCDM',
+            "TYC1",
+            "TYC2",
+            "TYC3",
+            "RAdeg",
+            "DEdeg",
+            "pmRA",
+            "pmDE",
+            "BTmag",
+            "VTmag",
+            "HIP",
+            "CCDM",
         ],
         [
-            'tyc1', 'tyc2', 'tyc3',
-            'ra_deg', 'de_deg', 'pm_ra', 'pm_de',
-            'bt_mag', 'vt_mag',
-            'hip', 'cmp',
+            "tyc1",
+            "tyc2",
+            "tyc3",
+            "ra_deg",
+            "de_deg",
+            "pm_ra",
+            "pm_de",
+            "bt_mag",
+            "vt_mag",
+            "hip",
+            "cmp",
         ],
     )
 
-    query = _tyc2_supplement1_query('tyc2suppl1')
-    _run_query(query, tyc2_supplement1_file, table, 'tyc2suppl1')
+    query = _tyc2_supplement1_query("tyc2suppl1")
+    _run_query(query, tyc2_supplement1_file, table, "tyc2suppl1")
 
 
 def download_tyc2tdsc_xmatch():
     """Download the TYC2-HIP cross-index from the Gaia archive."""
-    tyc2tdsc_xmatch_file = GAIA_EDR3_DIR/'tyc2tdsc_hip_xmatch.vot.gz'
-    if (
-        tyc2tdsc_xmatch_file.exists()
-        and not confirm_action('Re-download TYC2TDSC-HIP identifier map?')
+    tyc2tdsc_xmatch_file = GAIA_EDR3_DIR / "tyc2tdsc_hip_xmatch.vot.gz"
+    if tyc2tdsc_xmatch_file.exists() and not confirm_action(
+        "Re-download TYC2TDSC-HIP identifier map?"
     ):
         return
 
-    query = 'SELECT id_tycho, hip, cmp FROM tycho2tdsc_merge WHERE hip IS NOT NULL'
-    print('Querying for HIP-TYC crossmatches from tycho2tdsc_merge')
+    query = "SELECT id_tycho, hip, cmp FROM tycho2tdsc_merge WHERE hip IS NOT NULL"
+    print("Querying for HIP-TYC crossmatches from tycho2tdsc_merge")
     _run_query(query, tyc2tdsc_xmatch_file)
 
-_RANGE_PATTERN = re.compile(r'-([0-9]+)-([0-9]+)\.')
+
+_RANGE_PATTERN = re.compile(r"-([0-9]+)-([0-9]+)\.")
 
 
 def _parse_coord(coord_str: str) -> float:
     coord_str = coord_str.strip()
     coord_parts = [float(p) for p in coord_str.split()]
-    if coord_str.startswith('-'):
-        coord = coord_parts[0] - coord_parts[1]/60 - coord_parts[2]/3600
+    if coord_str.startswith("-"):
+        coord = coord_parts[0] - coord_parts[1] / 60 - coord_parts[2] / 3600
     else:
-        coord = coord_parts[0] + coord_parts[1]/60 + coord_parts[2]/3600
+        coord = coord_parts[0] + coord_parts[1] / 60 + coord_parts[2] / 3600
     return coord
 
 
@@ -292,11 +319,8 @@ FROM
 WHERE
     h2.hip IS NULL
     """
-    hip1_subset_file = GAIA_EDR3_DIR/'hip1_subset.vot.gz'
-    if (
-        not hip1_subset_file.exists()
-        or confirm_action('Re-download HIP1 subset?')
-    ):
+    hip1_subset_file = GAIA_EDR3_DIR / "hip1_subset.vot.gz"
+    if not hip1_subset_file.exists() or confirm_action("Re-download HIP1 subset?"):
         _run_query(query, hip1_subset_file)
 
 
@@ -317,17 +341,19 @@ def download_gaia() -> None:
     download_hip1_subset()
     download_tyc2tdsc_xmatch()
 
-    hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, 'gaiaedr3-hip2-*.vot.gz')
+    hip_ranges = _getranges(1, _HIP_MAX, GAIA_EDR3_DIR, "gaiaedr3-hip2-*.vot.gz")
     if not hip_ranges:
-        if confirm_action('HIP2-Gaia cross-match data already downloaded, replace?'):
+        if confirm_action("HIP2-Gaia cross-match data already downloaded, replace?"):
             hip_ranges = MultiRange(1, _HIP_MAX)
     download_gaia_hip2(hip_ranges)
 
     download_gaia_hip1()
 
-    tyc_ranges = _getranges(1, _TYC_MAX, GAIA_EDR3_DIR, 'gaiaedr3-tyctdsc-*.vot.gz')
+    tyc_ranges = _getranges(1, _TYC_MAX, GAIA_EDR3_DIR, "gaiaedr3-tyctdsc-*.vot.gz")
     if not tyc_ranges:
-        if confirm_action('TYC2TDSC-Gaia cross-match data already downloaded, replace?'):
+        if confirm_action(
+            "TYC2TDSC-Gaia cross-match data already downloaded, replace?"
+        ):
             tyc_ranges = MultiRange(1, _TYC_MAX)
     download_gaia_tyctdsc(tyc_ranges)
 
@@ -336,11 +362,10 @@ def download_gaia() -> None:
 
 def build_xmatches() -> None:
     """Build the cross-matches"""
-    if (
-        not (GAIA_EDR3_DIR/'xmatch-gaia-hiptyc.vot.gz').exists()
-        or confirm_action('Re-generate HIP/TYC cross-match?')
+    if not (GAIA_EDR3_DIR / "xmatch-gaia-hiptyc.vot.gz").exists() or confirm_action(
+        "Re-generate HIP/TYC cross-match?"
     ):
-        build_xmatch(GAIA_EDR3_DIR, VIZIER_DIR, 'xmatch-gaia-hiptyc.vot.gz')
+        build_xmatch(GAIA_EDR3_DIR, VIZIER_DIR, "xmatch-gaia-hiptyc.vot.gz")
 
 
 def download_gaia_distances(chunk_size: int = 250000) -> None:
@@ -353,27 +378,29 @@ FROM
     """
 
     source_ids: np.ndarray = get_required_dist_source_ids(GAIA_EDR3_DIR)
-    if len(source_ids) == 0 and confirm_action('Re-download distances?'):
-        for f in GAIA_EDR3_DIR.glob('gaiaedr3-distance-*.vot.gz'):
+    if len(source_ids) == 0 and confirm_action("Re-download distances?"):
+        for f in GAIA_EDR3_DIR.glob("gaiaedr3-distance-*.vot.gz"):
             f.unlink()
         source_ids = get_required_dist_source_ids(GAIA_EDR3_DIR)
-    source_ids = source_ids.astype('int64')  # https://github.com/numpy/numpy/issues/12264
+    source_ids = source_ids.astype(
+        "int64"
+    )  # https://github.com/numpy/numpy/issues/12264
     position = 0
     part = 1
-    for f in GAIA_EDR3_DIR.glob('gaiaedr3-distance-*.vot.gz'):
-        fpart = int(f.name.removeprefix('gaiaedr3-distance-').removesuffix('.vot.gz'))
+    for f in GAIA_EDR3_DIR.glob("gaiaedr3-distance-*.vot.gz"):
+        fpart = int(f.name.removeprefix("gaiaedr3-distance-").removesuffix(".vot.gz"))
         if fpart >= part:
             part = fpart + 1
 
     p = 1
-    num_parts = (len(source_ids)+chunk_size-1) // chunk_size
+    num_parts = (len(source_ids) + chunk_size - 1) // chunk_size
     while position < len(source_ids):
         next_position = min(position + chunk_size, len(source_ids))
-        print(f'Querying distances, part {p} of {num_parts}')
+        print(f"Querying distances, part {p} of {num_parts}")
 
         table = Table([source_ids[position:next_position]], names=("source_id",))
-        section_path = GAIA_EDR3_DIR/f'gaiaedr3-distance-{part:04}.vot.gz'
-        _run_query(query, section_path, table, 'source_ids')
+        section_path = GAIA_EDR3_DIR / f"gaiaedr3-distance-{part:04}.vot.gz"
+        _run_query(query, section_path, table, "source_ids")
 
         position = next_position
         part += 1

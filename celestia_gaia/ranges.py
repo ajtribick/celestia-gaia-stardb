@@ -24,6 +24,7 @@ from typing import Iterator
 
 class Range:
     """Represents an inclusive integer range."""
+
     begin: int
     end: int
 
@@ -34,10 +35,10 @@ class Range:
         self.end = end
 
     def __repr__(self) -> str:
-        return f'Range({self.begin!r}, {self.end!r})'
+        return f"Range({self.begin!r}, {self.end!r})"
 
     def __str__(self) -> str:
-        return f'[{self.begin}, {self.end}]'
+        return f"[{self.begin}, {self.end}]"
 
     def subtract_range(self, *args) -> list[Range]:
         """Returns the ranges that would result from removing a range from this one."""
@@ -49,7 +50,9 @@ class Range:
         elif len(args) == 2:
             other = Range(args[0], args[1])
         else:
-            raise TypeError(f'subtract_range() takes 1 or 2 arguments ({len(args)} given)')
+            raise TypeError(
+                f"subtract_range() takes 1 or 2 arguments ({len(args)} given)"
+            )
 
         if other.begin <= self.begin and other.end >= self.end:
             result = []
@@ -58,9 +61,9 @@ class Range:
         else:
             result = []
             if other.begin > self.begin:
-                result.append(Range(self.begin, other.begin-1))
+                result.append(Range(self.begin, other.begin - 1))
             if other.end < self.end:
-                result.append(Range(other.end+1, self.end))
+                result.append(Range(other.end + 1, self.end))
         return result
 
     def chunks(self, chunk_size) -> list[Range]:
@@ -68,13 +71,14 @@ class Range:
         result = []
         start = self.begin
         while start <= self.end:
-            result.append(Range(start, min(start+chunk_size-1, self.end)))
+            result.append(Range(start, min(start + chunk_size - 1, self.end)))
             start += chunk_size
         return result
 
 
 class MultiRange:
     """Represents a set of ranges."""
+
     ranges: list[Range]
 
     def __init__(self, begin: int, end: int) -> None:
@@ -93,7 +97,7 @@ class MultiRange:
         elif len(args) == 2:
             other = Range(args[0], args[1])
         else:
-            raise TypeError(f'remove() takes 1 or 2 arguments ({len(args)} given)')
+            raise TypeError(f"remove() takes 1 or 2 arguments ({len(args)} given)")
 
         new_ranges = []
         for subrange in self.ranges:

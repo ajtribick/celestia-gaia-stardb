@@ -26,9 +26,9 @@ from .utils import confirm_action, download_file, open_cds_tarfile
 from .celestia_gaia import estimate_distances
 
 
-_PRIORS_FILE = HIP2_DIST_DIR/'prior_summary.csv'
-_HEALPIX_FILE = HIP2_DIST_DIR/'hip2healpix.csv'
-_DIST_FILE = AUXFILES_DIR/'hip2dist.csv'
+_PRIORS_FILE = HIP2_DIST_DIR / "prior_summary.csv"
+_HEALPIX_FILE = HIP2_DIST_DIR / "hip2healpix.csv"
+_DIST_FILE = AUXFILES_DIR / "hip2dist.csv"
 
 
 def download_dist_prior() -> None:
@@ -36,43 +36,38 @@ def download_dist_prior() -> None:
     HIP2_DIST_DIR.mkdir(parents=True, exist_ok=True)
     download_file(
         _PRIORS_FILE,
-        'https://keeper.mpdl.mpg.de/d/0e9919daa8fa4e119ebe/files/?p=%2Fprior_summary.csv&dl=1'
+        "https://keeper.mpdl.mpg.de/d/0e9919daa8fa4e119ebe/files/?p=%2Fprior_summary.csv&dl=1",
     )
 
 
 def apply_healpix() -> None:
     """Determines the HEALPix containing each XHIP star."""
-    if (
-        _HEALPIX_FILE.exists()
-        and not confirm_action('XHIP-HEALPix mapping already generated, replace?')
+    if _HEALPIX_FILE.exists() and not confirm_action(
+        "XHIP-HEALPix mapping already generated, replace?"
     ):
         return
 
-    print('Mapping XHIP star positions to HEALPix cells')
-    with open_cds_tarfile(VIZIER_DIR/'xhip.tar.gz') as tf:
-        data = tf.read_gzip(
-            'main.dat',
-            ['HIP', 'RAdeg', 'DEdeg', 'Plx', 'e_Plx']
-        )
+    print("Mapping XHIP star positions to HEALPix cells")
+    with open_cds_tarfile(VIZIER_DIR / "xhip.tar.gz") as tf:
+        data = tf.read_gzip("main.dat", ["HIP", "RAdeg", "DEdeg", "Plx", "e_Plx"])
 
-    healpix = HEALPix(nside=1<<5, order='nested')
-    data['healpix'] = np.apply_along_axis(
-        lambda ra_dec: healpix.lonlat_to_healpix(ra_dec[0]*u.deg, ra_dec[1]*u.deg),
+    healpix = HEALPix(nside=1 << 5, order="nested")
+    data["healpix"] = np.apply_along_axis(
+        lambda ra_dec: healpix.lonlat_to_healpix(ra_dec[0] * u.deg, ra_dec[1] * u.deg),
         0,
-        [data['RAdeg'], data['DEdeg']]
+        [data["RAdeg"], data["DEdeg"]],
     )
 
-    data.write(_HEALPIX_FILE, format='csv', overwrite=True)
+    data.write(_HEALPIX_FILE, format="csv", overwrite=True)
 
 
 def build_hip2_distances() -> None:
     """Estimates distances using the Gaia EDR3 geometric distance algorithm."""
-    if (
-        _DIST_FILE.exists()
-        and not confirm_action('HIP2 distances file already generated, replace?')
+    if _DIST_FILE.exists() and not confirm_action(
+        "HIP2 distances file already generated, replace?"
     ):
         return
 
-    print('Estimating HIP2 distances from parallaxes')
+    print("Estimating HIP2 distances from parallaxes")
     apply_healpix()
     estimate_distances(_PRIORS_FILE, _HEALPIX_FILE, _DIST_FILE)
