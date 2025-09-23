@@ -11,8 +11,8 @@ Celestia/celestia.Sci, only Gaia data for HIP and TYC2 stars is processed.
 
 **Unless you are editing the code, it is recommended to use the pre-built
 files in the release rather than running these scripts manually.** The data
-files in the release may be used under a CC-BY-SA 4.0 license
-(https://creativecommons.org/licenses/by-sa/4.0/legalcode)
+files in the release may be used under a CC-BY-NC-3.0-IGO license
+(https://creativecommons.org/licenses/by-nc/3.0/igo/legalcode.en)
 
 ## Prerequisites
 
