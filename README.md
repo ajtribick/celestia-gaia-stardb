@@ -1,6 +1,10 @@
 Gaia EDR3 for Celestia/celestia.Sci
 ===================================
 
+> [!IMPORTANT]
+> This repository is archived. Further development will be done on
+> [Codeberg](https://codeberg.org/pelagornithid/celestia-gaia-stardb).
+
 This repository contains Python scripts to generate a celestia.Sci/Celestia
 star database from the *Gaia* Data Release 2 data, supplemented by the XHIP
 catalogue.
